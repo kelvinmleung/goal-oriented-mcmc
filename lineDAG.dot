@@ -1,0 +1,9 @@
+digraph MambaModel {
+	"beta" [shape="ellipse"];
+		"beta" -> "mu";
+	"y" [shape="ellipse", style="filled", fillcolor="gray85"];
+	"mu" [shape="diamond", style="filled", fillcolor="gray85"];
+		"mu" -> "y";
+	"xmat" [shape="box", style="filled", fillcolor="gray85"];
+		"xmat" -> "mu";
+}
