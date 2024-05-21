@@ -40,6 +40,7 @@ O = goalMatrix_selection(hgt, wdth, crop_x, crop_y)
 # savefig("plots/z_true.png")
 
 # Apply forward mode
+σ_k² = 4.0
 G = blurMatrix_linear(σ_k², img)
 y = G * x + sqrt(σ_ϵ²) .* randn(length(img))
 # plotImgVec(y, hgt, wdth, "Y")
@@ -48,7 +49,7 @@ y = G * x + sqrt(σ_ϵ²) .* randn(length(img))
 μ_x = 0.5*ones(numPix)
 μ_z = O * μ_x
 σ_X², σ_Z² = 0.04, 0.04
-σ_k² = 4.0
+
 σ_ϵ² = 1e-4
 # Γ_x, Γ_ϵ = σ_X² * I, σ_ϵ² * I
 Γ_x, Γ_ϵ = σ_X² * diagm(ones(numPix)), σ_ϵ² * diagm(ones(numPix))
@@ -106,6 +107,10 @@ F = G * Q
 
 # plotImgVec(μ_zgy_lin, hgt_comp, wdth_comp, "Linear inversion, r = " * string(r))
 
+H1 = F' * invΓ_Δ * F;
+L_z = cholesky(Γ_z).L;
+Plots.plot(eigvals(L_z' * H1 * L_z)[end:-1:1], yaxis=:log)
+
 
 r = 500
 Λ, q, q_hat = posterior_ZgY_lowRank_eig(invΓ_z, Γ_x, Γ_ϵ, G, O)
@@ -113,6 +118,7 @@ q_tilde = Γ_x * O' * invΓ_z * O * Γ_x * G' * q
 Φ_r = q_tilde[:,1:r]
 Φ_perp = q_tilde[:,r+1:end]
 Ξ_r = invΓ_x * Φ_r
+
 
  # my own implementation
 x0 = μ_x

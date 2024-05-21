@@ -4,6 +4,7 @@ using FileIO
 using Plots
 using Statistics
 using LinearAlgebra
+using Random, Distributions
 
 function plotImg(img, lbl)
     display(Plots.plot(img, axis = false, title=lbl, dpi=300))
@@ -55,6 +56,38 @@ function construct_prior(hgt, wdth, param_l)
 end
 
 
+function fwdtoy(x)
+    x1, x2, x3 = x
+    g1 = cos(x1 )+ x2^2 
+    g2 = x1 - x3 
+    # g3 = x1^2 + cos(x2)
+    g3 = x1^2 + sin(x2)
+    return [g1; g2; g3]
+end
+
+function dfwdtoy(x)
+    x1, x2, x3 = x
+    dg = [[-sin(x1) 2*x2 0]; 
+        [1 0 -1]; 
+        [2*x1 cos(x2) 0]]
+    return dg
+end
+
+# function fwdtoy(x)
+#     x1, x2 = x
+#     g1 = x1 + 10*x2
+#     g2 = x1 - x2
+#     return [g1; g2]
+# end
+
+# function dfwdtoy(x)
+#     x1, x2 = x
+#     dg = [[1 10]; 
+#         [1 -1]]
+#     return dg
+# end
+
+
 function blurMatrix_linear(σ_k², img)
     hgt, wdth = size(img) 
     kernel(x,y) = exp(- 1/σ_k² * (x^2 + y^2))
@@ -85,43 +118,31 @@ function blurMatrix_nonlinear(σ_k², x, hgt, wdth)
     return 2 * G * x.^2 , 4 * G * diagm(x)
 end
 
-function blurMatrix_nonlinear2(σ_1², σ_2², x, hgt, wdth) # how to speed up this calculation??
+function blurMatrix_linear2(σ_k², x, hgt, wdth)
+    kernel(x,y) = exp(- 1/σ_k² * (x^2 + y^2))
+    A = zeros(hgt, wdth,hgt, wdth)
+    for i in CartesianIndices(A)
+        A[i] = kernel(i[1]-i[3],i[2]-i[4])
+    end
+    l1 =  Int(round(hgt/2))
+    l2 =  Int(round(wdth/2))
+    sumkernal = sum(kernel(x,y) for x in -l1:l1, y in -l2:l2)
+    G = reshape(A,length(img),length(img)) ./ sumkernal
+    return G * x, G
+end
+
+function blurMatrix_nonlinear2(σ_1², σ_2², x, hgt, wdth; calc_der=true) # how to speed up this calculation??
     # hgt, wdth = size(img) 
     n = length(x)
     kernel(t1,t2,tx) = exp(-1/(σ_1²+ (σ_2²-σ_1²) * tx) * (t1^2 + t2^2)) 
     # dkernel(t1,t2,tx) =  (t1^2 + t2^2)  * (σ_2²-σ_1²)/ (σ_1²+ (σ_2²-σ_1²) * tx)^2 * kernel(t1,t2,tx) 
     A = zeros(hgt, wdth, hgt, wdth)
-    dA = zeros(hgt, wdth, hgt, wdth)
+    if calc_der
+        dA = zeros(hgt, wdth, hgt, wdth)
+    end
     sumkernal = 0
     l1 =  Int(round(hgt/2))
     l2 =  Int(round(wdth/2))
-    
-
-    # for i1 in 1:hgt
-    #     for i2 in 1:wdth
-    #         xpixel = i1 + (i2-1) * hgt
-    #         if x[xpixel] > 1
-    #             xinput = 1
-    #         elseif x[xpixel] < 0
-    #             xinput = 0
-    #         else
-    #             xinput = x[xpixel] 
-    #         end
-    #         sumkernal = sum(kernel(t1,t2, xinput) for t1 in -l1:l1, t2 in -l2:l2)
-
-    #         for j1 in 1:hgt
-    #             for j2 in 1:wdth
-    #                 A[i1,i2,j1,j2] = kernel(i1-j1, i2-j2, xinput)
-    #                 dA[i1,i2,j1,j2] = ((i1-j1)^2 + (i2-j2)^2)  * (σ_2²-σ_1²)/ (σ_1²+ (σ_2²-σ_1²) * xinput)^2 * A[i1,i2,j1,j2]
-    #             end
-    #         end
-    #     end
-    # end
-    # end
-
-    # G = reshape(A,n,n) #./ sumkernal_rep
-    # dAreshape = reshape(dA,n,n) #./ sumkernal_rep
-
 
     # @time begin
     sumkernal=zeros(n)
@@ -143,26 +164,18 @@ function blurMatrix_nonlinear2(σ_1², σ_2², x, hgt, wdth) # how to speed up t
 
         A[i] = kernel(i[1]-i[3], i[2]-i[4], xinput) / sumkernal[xpixel]
         # dA[i] = dkernel(i[1]-i[3], i[2]-i[4], xinput)
-        dA[i] = (i[1]-i[3]^2 + i[2]-i[4]^2)  * (σ_2²-σ_1²)/ (σ_1²+ (σ_2²-σ_1²) * xinput)^2 * A[i]
+        if calc_der
+            dA[i] = (i[1]-i[3]^2 + i[2]-i[4]^2)  * (σ_2²-σ_1²)/ (σ_1²+ (σ_2²-σ_1²) * xinput)^2 * A[i]
+        end
     end
     # end
     G = reshape(A,n,n) 
-    dAreshape = reshape(dA,n,n)
-    # @time begin
-    # sumkernal = zeros(n)
-    # for i in 1:n
-    #     sumkernal[i] = sum(kernel(t1,t2, x[i]) for t1 in -l1:l1, t2 in -l2:l2)
-    # end
-    # sumkernal_rep = repeat(sumkernal,1,n)
-    # end 
-    # @time begin
-    # G = reshape(A,n,n) ./ sumkernal_rep
-    # dAreshape = reshape(dA,n,n) ./ sumkernal_rep
-    # G[:] = G[:] / sumkernal_rep
-    # dAreshape[i,:] = dAreshape[i,:] ./ sumkernal_rep
-    # end
-    
-    return G * x, G + diagm(dAreshape * x)
+    if calc_der
+        dAreshape = reshape(dA,n,n)
+        return G * x, G + diagm(dAreshape * x)
+    else
+        return G*x
+    end
 end
 
 function blurMatrix_nonlinear2_fast(σ_1², σ_2², x, hgt, wdth) 

@@ -48,17 +48,34 @@ gx, ~ = blurMatrix_nonlinear2(9, 1, x, hgt, wdth)
 Γ_z = O * Γ_x * O'
 invΓ_x, invΓ_z, invΓ_ϵ = inv(Γ_x), inv(Γ_z), inv(Γ_ϵ)
 
-# Q = Γ_x * O' * invΓ_z
 
-priorHessian(μ_x, Γ_x, Γ_ϵ, O, 1000)
-@load "mcmc/priorHessian.jld" # x_pr, H
+# priorHessian(μ_x, Γ_x, Γ_ϵ, O, 1000)
+# @load "mcmc/priorHessian.jld" # x_pr, H
 
 
 y = gx + sqrt(σ_ϵ²) .* randn(numPix)
 
-@time x_all = mcmc_lis_nonlinear(μ_x, Γ_x, Γ_ϵ, O, y; m=1000, epoch=1);
+
+
+
+@load "mcmc/priorHessian.jld" # x_pr, H
+# Plots.plot(eigvals(H)[end:-1:1],yaxis=:log) # Plots.plot(eigvals(L_z * H1 * L_z')[end:-1:1],yaxis=:log)
+x_all = x_pr
+# first time
+firstepoch= true
+if size(x_all, 2) > 1000
+    firstepoch = false
+end
+
+Nsamp = 1000
+@time x_all = mcmc_lis_nonlinear(μ_x, Γ_x, Γ_ϵ, O, H, x_all, y; m=Nsamp);
+z = O * x_all[:,end-Nsamp:end]
+@time H = evalHessian(z, Q, O, Γ_x, Γ_ϵ);
+
 z_all = O * x_all
 plotImgVec(mean(z_all[:,1001:end], dims=2), hgt_comp, wdth_comp, "MCMC posterior mean")
+
+###### TEST THE HESSIAN EQUATION ON LINEAR FUNCTION (ARE EIGENVALUES SAME SO HIGH)
 
 
 
