@@ -5,6 +5,25 @@ using Plots
 using Statistics
 using LinearAlgebra
 using Random, Distributions
+using AOE
+
+λ_ranges = [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]
+priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
+rtmodel = AOE.get_radiative_transfer_modtran(:LUTRT1; λ_ranges);
+
+function aoe_fwdfun(x)
+    xa = x[1:2]
+    xs = x[3:end]
+    AOE.fwdfun(xa, xs, rtmodel) 
+end
+
+function aoe_gradfwdfun(x, fx)
+    xa = x[1:2]
+    xs = x[3:end]
+    # AOE.gradfwd(xa, xs, rtmodel) 
+    AOE.gradfwd_accel(xa, xs, rtmodel, fx) 
+end
+
 
 function plotImg(img, lbl)
     display(Plots.plot(img, axis = false, title=lbl, dpi=300))

@@ -1,6 +1,8 @@
 using Distributed, Random, Base
 using Mamba, LinearAlgebra, JLD
 
+
+
 function mcmc_linear(μ_pr, Γ_pr, Γ_obs, G, y, N, alg)
     model = Model(
         y = Stochastic(1, (mu) ->  MvNormal(mu, Γ_obs), false),
@@ -95,11 +97,15 @@ function logpos_1d(xr, x0, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
     
     # x_pr = x_prsamp[:,rand(1:100000)] # [0; -0.13691952528258547; -0.06135762296452887] #
     # x_pr[1] = xr + x0 #+ x_pr[1] 
-    gx = fwdtoy(Qz) # + dfwdtoy(Qz) * (I - Φ * O) * x_pr #dfwdtoy(Q * z_true) * (I - Q * O) * x_true
-    gdx = dfwdtoy(Qz)
-    invΓ_obs = inv(Γ_obs + gdx * (Γ_x - Φ * O * Γ_x) * gdx') #inv(Γ_obs + gdx * (Γ_x -  Q * O * Γ_x) * gdx')
+    # gx = fwdtoy(Qz) # + dfwdtoy(Qz) * (I - Φ * O) * x_pr #dfwdtoy(Q * z_true) * (I - Q * O) * x_true
+    # gdx = dfwdtoy(Qz)
+    gx = aoe_fwdfun(Qz)
+    # @time gdx = aoe_gradfwdfun(Qz)
+    gdx = aoe_gradfwdfun(Qz, gx)
+    Γ_Δ = Γ_obs + gdx * (Γ_x - Φ * O * Γ_x) * gdx'
+    invΓ_obs = inv(cholesky(tril(Γ_Δ)+ tril(Γ_Δ,-1)')) #inv(Γ_obs + gdx * (Γ_x -  Q * O * Γ_x) * gdx')
     logprior = -1/2 * (Qz - μ_pr)' * invΓ_pr * (Qz - μ_pr)
-    loglikelihood = -1/2 * (y - gx)' * invΓ_obs * (y - gx)
+    loglikelihood = -1/2 * (y - gx)' * invΓ_obs * (y - gx) - 1/2 * logdet(Γ_Δ)
     logprior[1] + loglikelihood
 end
 
@@ -404,7 +410,7 @@ function mcmc_lis_1d(x0, μ_pr, Γ_pr, Γ_obs, Φ, O, y; N=1000)
     sd, eps = 2.38^2, 1e-10
 
     x = x0
-    propcov = sd
+    propcov = sd * O * Γ_pr * O'
     propChol = sqrt(propcov)
     meanXprev = 0.
 
@@ -419,10 +425,17 @@ function mcmc_lis_1d(x0, μ_pr, Γ_pr, Γ_obs, Φ, O, y; N=1000)
         x_vals[i] = x
         logpos[i] = lpx
 
+        if i % 100 == 0
+            if mean(accept[i-99:i]) < 0.1
+                propChol = propChol / sd
+            end
+        end
+
         if i % 500 == 0
-            if i % 10000 == 0
+            
+            if i % 1000 == 0
                 display("Sample: " * string(i))
-                display("   Accept Rate: " * string(mean(accept[i-9999:i])))
+                display("   Accept Rate: " * string(mean(accept[i-999:i])))
             end
             # display("Sample: " * string(i))
             # display("   Accept Rate: " * string(mean(accept[i-499:i])))

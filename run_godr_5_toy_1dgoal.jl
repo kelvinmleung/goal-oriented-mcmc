@@ -77,5 +77,5 @@ plot!([z_true], seriestype="vline", color=:black, linewidth=3, label="Truth")
 
 
 # ## MCMC Chain plots
-# plot(z_possamp[1:10000], xlabel="Sample number", ylabel="Z", title="Naive MCMC", label=false)
-# plot(z_possamp_lowrank[1:10000], xlabel="Sample number", ylabel="Z", title="Goal-oriented MCMC", label=false)
+plot(z_possamp[1:10000], xlabel="Sample number", ylabel="Z", title="Naive MCMC", label=false)
+plot(z_possamp_lowrank[1:10000], xlabel="Sample number", ylabel="Z", title="Goal-oriented MCMC", label=false)
