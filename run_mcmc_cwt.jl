@@ -1,6 +1,6 @@
 include("inverseProblem.jl")
-include("mcmc.jl")
-using StatsPlots
+include("mcmc_1d.jl")
+using StatsPlots, NPZ
 
 Random.seed!(123)
 
@@ -25,42 +25,39 @@ y = npzread("data_canopy/y.npy")[1,1,:]
 invΓ_x, invΓ_z, invΓ_ϵ = inv(Γ_x), inv(Γ_z), inv(Γ_ϵ)
 Q = Γ_x * O' * invΓ_z
 
-m = 10000
+m = 1000000
 
 normDist = MvNormal(μ_x, Γ_x)
 x_prsamp = rand(normDist, m)
 z_prsamp = (O * x_prsamp)' .+ O_offset
 
-
-# @time x_possamp = mcmc_amm_simple(μ_x, μ_x, Γ_x, Γ_ϵ, y, m+20000)[:,20001:end]
-# x_pos_mean = mean(x_possamp[:,Int(m/2):end], dims=2)
-# z_possamp = O * x_possamp
+@time x_possamp = mcmc_amm_simple(vcat([0.2; 1.3],x_true), μ_x, Γ_x, Γ_ϵ, y, m)
+x_pos_mean = mean(x_possamp[:,Int(m/2):end], dims=2)
+z_possamp = (O * x_possamp)' .+ O_offset
+# npzwrite("data_canopy/z_chain_1_1_jun29_naiveMCMC.npy", z_possamp)
 
 
 # low rank 1D
 @time z_possamp_lowrank = mcmc_lis_1d(μ_z[1], μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m) .+ O_offset
 
+# @time z_possamp_lowrank = mcmc_lis_unified(μ_z[1], μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m) .+ O_offset
+
 
 
 # ## SAVE THIS TO NPY!!!!!!!
-# npzwrite("data_canopy/z_chain_1_1_may29.npy", z_possamp_lowrank)
+# npzwrite("data_canopy/z_chain_1_1_jun29.npy", z_possamp_lowrank)
 
 
 
-
-
-
-
-density(z_possamp_lowrank[2500:10:end], color=:blue, linewidth=2, label="Low Rank",  title="1D Goal Posterior - Marginal Density", xlim=[0.1,0.4])
+density(z_possamp_lowrank[2500:10:end], color=:blue, linewidth=2, label="Low Rank",  title="1D Goal Posterior - Marginal Density")#, xlim=[0.1,0.4])
 density!(z_prsamp[2500:10:end], color=:black, linewidth=1, label="Prior")
-# plot!([mean(z_possamp[1:100:end])], seriestype="vline", color=:red3, linewidth=3, label=false)
-# plot!([mean(z_possamp_lowrank[1:100:end])], seriestype="vline", color=:blue3, linewidth=3, label=false)
-# plot!([mean(z_prsamp[1:100:end])], seriestype="vline", color=:black, linewidth=2, label=false)
+# density!(z_possamp[950000:10:end], color=:red, linewidth=2, label="Naive")#, xlim=[0.1,0.4])
 plot!([z_true], seriestype="vline", color=:black, linewidth=3, label="Truth")
 
 
+
 # ## MCMC Chain plots
-plot(z_possamp, xlabel="Sample number", ylabel="Z", title="Naive MCMC", label=false)
+plot(1:100:m,z_possamp[1:100:m], xlabel="Sample number", ylabel="Z", title="Naive MCMC", label=false)
 plot(z_possamp_lowrank[1:10000], xlabel="Sample number", ylabel="Z", title="Goal-oriented MCMC", label=false)
 
 

@@ -2,7 +2,7 @@ using Distributed, Random, Base
 using Mamba, LinearAlgebra, JLD
 
 
-
+# note: migrated 1d to mcmc_1d.jl on May30, 2024
 function mcmc_linear(μ_pr, Γ_pr, Γ_obs, G, y, N, alg)
     model = Model(
         y = Stochastic(1, (mu) ->  MvNormal(mu, Γ_obs), false),
@@ -90,7 +90,7 @@ function logpos(xr, μ_pr, invΓ_obs, Φ, y)
     logprior + loglikelihood #, dgx
 end
 
-function logpos_1d(xr, x0, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
+function logpos_1d(xr, x0, μ_pr, invΓ_pr, Γ_obs, Φ, O, y) ## fix the Gamma_x not being in function call
 
     # tPr = xr + (O * (x0 - μ_pr))[1]
     Qz = Φ * (xr + x0) 
@@ -99,19 +99,27 @@ function logpos_1d(xr, x0, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
     # x_pr[1] = xr + x0 #+ x_pr[1] 
     # gx = fwdtoy(Qz) # + dfwdtoy(Qz) * (I - Φ * O) * x_pr #dfwdtoy(Q * z_true) * (I - Q * O) * x_true
     # gdx = dfwdtoy(Qz)
-    gx = aoe_fwdfun(Qz)
+
+    prSamp = mean(rand(normDist, 100), dims=2)
+
+
+
+    gx = aoe_fwdfun(Qz) 
     # @time gdx = aoe_gradfwdfun(Qz)
     gdx = aoe_gradfwdfun(Qz, gx)
-    Γ_Δ = Γ_obs + gdx * (Γ_x - Φ * O * Γ_x) * gdx'
+    gx_augment = gx + vec(gdx * (I-Q*O) * prSamp)
+
+    Γ_Δ = Γ_obs #+ gdx * (Γ_x - Φ * O * Γ_x) * gdx'
     invΓ_obs = inv(cholesky(tril(Γ_Δ)+ tril(Γ_Δ,-1)')) #inv(Γ_obs + gdx * (Γ_x -  Q * O * Γ_x) * gdx')
     logprior = -1/2 * (Qz - μ_pr)' * invΓ_pr * (Qz - μ_pr)
-    loglikelihood = -1/2 * (y - gx)' * invΓ_obs * (y - gx) - 1/2 * logdet(Γ_Δ)
+    loglikelihood = -1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment) - 1/2 * logdet(Γ_Δ)
     logprior[1] + loglikelihood
 end
 
 
 function logpos_simple(x, μ_pr, invΓ_pr, invΓ_obs, y)
-    gx = fwdtoy(x)
+    # gx = fwdtoy(x)
+    gx = aoe_fwdfun(x)
     -1/2 * (x - μ_pr)' * invΓ_pr * (x - μ_pr) - 1/2 * (y - gx)' * invΓ_obs * (y - gx)
 end
 
@@ -240,7 +248,7 @@ function mcmc_amm_simple(x0, μ_pr, Γ_pr, Γ_obs, y, N)
     x_vals = zeros(r, N)
     invΓ_pr, invΓ_obs = inv(Γ_pr), inv(Γ_obs)
     logpos, accept = zeros(N), zeros(N)
-    propcov = (2.38^2) / r * diagm(ones(r))
+    propcov = (2.38^2) / r * Γ_pr #diagm(ones(r))
     propChol = cholesky(propcov).L 
     sd, eps = 2.38^2 / r, 1e-10
     meanXprev = zeros(r)
