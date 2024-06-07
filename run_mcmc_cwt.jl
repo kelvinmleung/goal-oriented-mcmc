@@ -1,9 +1,14 @@
 include("inverseProblem.jl")
 include("mcmc_1d.jl")
-using StatsPlots, NPZ
+using StatsPlots, NPZ, AOE
 
 Random.seed!(123)
 
+
+λ_ranges = [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]
+priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
+rtmodel = AOE.get_radiative_transfer_modtran(:LUTRT1; λ_ranges);
+rdbufs = get_RetrievalData_bufs(nλ) 
 
 
 n, p = 326, 1
@@ -13,6 +18,11 @@ O_offset = npzread("data_canopy/goal_op_const_8_unscaled.npy")
 x_true = npzread("data_canopy/s_true.npy")[1,1,:] #x_true atm = 0.19, 1.31
 z_true = O[3:end]' * x_true + O_offset
 y = npzread("data_canopy/y.npy")[1,1,:]
+
+xa, xs = AOE.invert(y, rdbufs[1], rtmodel, priormodel)
+fx = AOE.fwdfun(xa, xs, rtmodel) 
+dfx = AOE.gradfwd_accel(xa, xs, rtmodel, fx)[:,3:end]
+x_map = vcat(xa,xs)
 
 # Inference parameters
 μ_x = vcat([0.2; 1.3], npzread("data_canopy/prmean_1_1.npy"))
@@ -25,39 +35,50 @@ y = npzread("data_canopy/y.npy")[1,1,:]
 invΓ_x, invΓ_z, invΓ_ϵ = inv(Γ_x), inv(Γ_z), inv(Γ_ϵ)
 Q = Γ_x * O' * invΓ_z
 
-m = 1000000
+m = 10000
 
 normDist = MvNormal(μ_x, Γ_x)
 x_prsamp = rand(normDist, m)
 z_prsamp = (O * x_prsamp)' .+ O_offset
 
-@time x_possamp = mcmc_amm_simple(vcat([0.2; 1.3],x_true), μ_x, Γ_x, Γ_ϵ, y, m)
-x_pos_mean = mean(x_possamp[:,Int(m/2):end], dims=2)
-z_possamp = (O * x_possamp)' .+ O_offset
-# npzwrite("data_canopy/z_chain_1_1_jun29_naiveMCMC.npy", z_possamp)
+# @time x_possamp = mcmc_amm_simple(vcat([0.2; 1.3],x_true), μ_x, Γ_x, Γ_ϵ, y, m)
+# x_pos_mean = mean(x_possamp[:,Int(m/2):end], dims=2)
+# z_possamp = (O * x_possamp)' .+ O_offset
+# # npzwrite("data_canopy/z_chain_1_1_jun4_naiveMCMC.npy", z_possamp)
 
 
 # low rank 1D
-@time z_possamp_lowrank = mcmc_lis_1d(μ_z[1], μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m) .+ O_offset
+@time z_possamp_lowrank = mcmc_lis_1d(vcat(xa,xs), μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m) .+ O_offset
+@time z_possamp_lowrank_initpr = mcmc_lis_1d(μ_x, μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m) .+ O_offset
 
 # @time z_possamp_lowrank = mcmc_lis_unified(μ_z[1], μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m) .+ O_offset
-
-
-
-# ## SAVE THIS TO NPY!!!!!!!
 # npzwrite("data_canopy/z_chain_1_1_jun29.npy", z_possamp_lowrank)
 
+# MAP
+Γ_laplace = inv(invΓ_x[3:end,3:end] + dfx' * invΓ_ϵ * dfx)
+laplaceDist = MvNormal(xs, (tril(Γ_laplace)+ tril(Γ_laplace,-1)'))
+x_laplacesamp = rand(laplaceDist, m)
+z_laplacesamp = (O[3:end]' * x_laplacesamp)' .+ O_offset
 
 
-density(z_possamp_lowrank[2500:10:end], color=:blue, linewidth=2, label="Low Rank",  title="1D Goal Posterior - Marginal Density")#, xlim=[0.1,0.4])
-density!(z_prsamp[2500:10:end], color=:black, linewidth=1, label="Prior")
+
+
+density(z_possamp_lowrank[2000:1:end], color=:blue, linewidth=2, label="Low Rank",  title="1D Goal Posterior - Marginal Density", xlim=[0.1,0.3])
+density!(z_possamp_lowrank_initpr[1:1:end], color=:blue, linewidth=2, label="Low Rank - Init Prior")
+
+density!(z_prsamp[1:1:end], color=:black, linewidth=1, label="Prior")
+# density!(z_laplacesamp[1:1:end], color=:red, linewidth=1, label="Laplace")
+
 # density!(z_possamp[950000:10:end], color=:red, linewidth=2, label="Naive")#, xlim=[0.1,0.4])
 plot!([z_true], seriestype="vline", color=:black, linewidth=3, label="Truth")
+# plot!([O*x_map+O_offset], seriestype="vline", color=:red, linewidth=3, label="MAP")
+# plot!([mean(z_possamp_lowrank[2000:1:end])], seriestype="vline", color=:blue, linewidth=3, label="Pos Mean")
 
 
 
-# ## MCMC Chain plots
-plot(1:100:m,z_possamp[1:100:m], xlabel="Sample number", ylabel="Z", title="Naive MCMC", label=false)
-plot(z_possamp_lowrank[1:10000], xlabel="Sample number", ylabel="Z", title="Goal-oriented MCMC", label=false)
+
+# # ## MCMC Chain plots
+# plot(1:100:m,z_possamp[1:100:m], xlabel="Sample number", ylabel="Z", title="Naive MCMC", label=false)
+plot(z_possamp_lowrank[1:end], xlabel="Sample number", ylabel="Z", title="Goal-oriented MCMC", label=false)
 
 

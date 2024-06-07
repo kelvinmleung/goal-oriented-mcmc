@@ -90,36 +90,36 @@ function logpos(xr, μ_pr, invΓ_obs, Φ, y)
     logprior + loglikelihood #, dgx
 end
 
-function logpos_1d(xr, x0, μ_pr, invΓ_pr, Γ_obs, Φ, O, y) ## fix the Gamma_x not being in function call
+# function logpos_1d(xr, x0, μ_pr, invΓ_pr, Γ_obs, Φ, O, y) ## fix the Gamma_x not being in function call
 
-    # tPr = xr + (O * (x0 - μ_pr))[1]
-    Qz = Φ * (xr + x0) 
+#     # tPr = xr + (O * (x0 - μ_pr))[1]
+#     Qz = Φ * (xr + x0) 
     
-    # x_pr = x_prsamp[:,rand(1:100000)] # [0; -0.13691952528258547; -0.06135762296452887] #
-    # x_pr[1] = xr + x0 #+ x_pr[1] 
-    # gx = fwdtoy(Qz) # + dfwdtoy(Qz) * (I - Φ * O) * x_pr #dfwdtoy(Q * z_true) * (I - Q * O) * x_true
-    # gdx = dfwdtoy(Qz)
+#     # x_pr = x_prsamp[:,rand(1:100000)] # [0; -0.13691952528258547; -0.06135762296452887] #
+#     # x_pr[1] = xr + x0 #+ x_pr[1] 
+#     # gx = fwdtoy(Qz) # + dfwdtoy(Qz) * (I - Φ * O) * x_pr #dfwdtoy(Q * z_true) * (I - Q * O) * x_true
+#     # gdx = dfwdtoy(Qz)
 
-    prSamp = mean(rand(normDist, 100), dims=2)
+#     prSamp = mean(rand(normDist, 100), dims=2)
 
 
 
-    gx = aoe_fwdfun(Qz) 
-    # @time gdx = aoe_gradfwdfun(Qz)
-    gdx = aoe_gradfwdfun(Qz, gx)
-    gx_augment = gx + vec(gdx * (I-Q*O) * prSamp)
+#     gx = aoe_fwdfun(Qz) 
+#     # @time gdx = aoe_gradfwdfun(Qz)
+#     gdx = aoe_gradfwdfun(Qz, gx)
+#     gx_augment = gx + vec(gdx * (I-Q*O) * prSamp)
 
-    Γ_Δ = Γ_obs #+ gdx * (Γ_x - Φ * O * Γ_x) * gdx'
-    invΓ_obs = inv(cholesky(tril(Γ_Δ)+ tril(Γ_Δ,-1)')) #inv(Γ_obs + gdx * (Γ_x -  Q * O * Γ_x) * gdx')
-    logprior = -1/2 * (Qz - μ_pr)' * invΓ_pr * (Qz - μ_pr)
-    loglikelihood = -1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment) - 1/2 * logdet(Γ_Δ)
-    logprior[1] + loglikelihood
-end
+#     Γ_Δ = Γ_obs #+ gdx * (Γ_x - Φ * O * Γ_x) * gdx'
+#     invΓ_obs = inv(cholesky(tril(Γ_Δ)+ tril(Γ_Δ,-1)')) #inv(Γ_obs + gdx * (Γ_x -  Q * O * Γ_x) * gdx')
+#     logprior = -1/2 * (Qz - μ_pr)' * invΓ_pr * (Qz - μ_pr)
+#     loglikelihood = -1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment) - 1/2 * logdet(Γ_Δ)
+#     logprior[1] + loglikelihood
+# end
 
 
 function logpos_simple(x, μ_pr, invΓ_pr, invΓ_obs, y)
-    # gx = fwdtoy(x)
-    gx = aoe_fwdfun(x)
+    gx = fwdtoy(x)
+    # gx = aoe_fwdfun(x)
     -1/2 * (x - μ_pr)' * invΓ_pr * (x - μ_pr) - 1/2 * (y - gx)' * invΓ_obs * (y - gx)
 end
 
