@@ -2,8 +2,8 @@ using NPZ
 
 
 
-sampPr = npzread("data_canopy/priorSamples_4_unscaled.npy")
-sampCwt = npzread("data_canopy/cwt_priorSamples_4_unscaled.npy")
+sampPr = npzread("data_canopy/priorSamples_8_unscaled.npy")
+sampCwt = npzread("data_canopy/cwt_priorSamples_8_unscaled.npy")
 
 
 nλ, Nsamp = size(sampPr)
@@ -21,11 +21,11 @@ X = X[sampCwt.>1e-8, :]
 
 β = inv(X'*X) * X' * Z
 O = β[2:end]
-O_offset = β[1]
+O_offset = β[1]ed
 
-## write test function to compare Ox and z
-npzwrite("data_canopy/goal_op_4_unscaled.npy", O)
-npzwrite("data_canopy/goal_op_const_4_unscaled.npy",O_offset)
+# ## write test function to compare Ox and z
+# npzwrite("data_canopy/goal_op_8_unscaled.npy", O)
+# npzwrite("data_canopy/goal_op_const_8_unscaled.npy",O_offset)
 
 
 plot(Z[1:1000],(β'*X')[1:1000], seriestype=:scatter, xlabel="Truth", ylabel="Predicted", legend=false)#, ylims=[0,0.3], xlims=[0,0.4])
