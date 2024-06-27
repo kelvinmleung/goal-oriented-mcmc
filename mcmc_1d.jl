@@ -6,26 +6,29 @@ function proposal_1d(μ, σ)
     μ + σ * randn(1)[1]
 end
 
-function logpos_1d_approx(xr, μ_pr, invΓ_pr, Γ_obs, Φ, O, y) # use the linearized likelihood
+function logpos_1d_approx(xr, μ_pr, Γ_pr, Γ_obs, Φ, O, offset, y) # use the linearized likelihood
 
     Qz = Φ * xr #+ x0 
     gx = aoe_fwdfun(Qz + μ_pr) 
     gdx = aoe_gradfwdfun(Qz + μ_pr, gx)
+    # gx = fwdtoy(Qz + μ_pr) 
+    # gdx = dfwdtoy(Qz + μ_pr)
 
-    Γ_Δ = Γ_obs + gdx * (Γ_x - Φ * O * Γ_x) * gdx'
+    Γ_Δ = Γ_obs + gdx * (Γ_pr - Φ * O * Γ_pr) * gdx'
     invΓ_obs = inv(cholesky(tril(Γ_Δ)+ tril(Γ_Δ,-1)'))
-    logprior = -1/2 * (Qz)' * invΓ_pr * (Qz)
+    # logprior = -1/2 * (Qz)' * inv(Γ_pr) * (Qz)
+    logprior = 1/2 * xr' * invΓ_z * xr
     loglikelihood = -1/2 * (y - gx)' * invΓ_obs * (y - gx) - 1/2 * logdet(Γ_Δ)
 
     logprior[1] + loglikelihood
 end
 
-function logpos_1d(xr, μ_pr, invΓ_pr, invΓ_obs, Q, O, y)
+function logpos_1d(xr, μ_pr, invΓ_pr, invΓ_obs, Q, O, offset, y)
     Qz = Q * xr
     # logprior = -1/2 * (Qz)' * invΓ_pr * (Qz)
     logprior = -1/2 * xr' * invΓ_z * xr
-    m = 10
-    prSamp = rand(normDist, m)
+    m = 1000
+    # prSamp = rand(normDist, m)
     
     expTerm = zeros(m)
     likelihood = 0
@@ -35,14 +38,14 @@ function logpos_1d(xr, μ_pr, invΓ_pr, invΓ_obs, Q, O, y)
 
         # gx_augment = fwdtoy(Qz + (I - Q*O)*(prSamp[:,i] - μ_pr) + μ_pr)
         # gx_augment = aoe_fwdfun(Qz + (I - Q*O)*(prSamp[:,i] - μ_pr) + μ_pr)
-        # expTerm[i] = -1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment)
-        likelihood = likelihood + 1/m * exp(-1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment))
+        expTerm[i] = -1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment)
+        # likelihood = likelihood + 1/m * exp(-1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment))
     end
-    logprior[1] + log(likelihood) #logsumexp(expTerm) #
+    logprior[1] + logsumexp(expTerm) #log(likelihood) #
 end
 
-function logpos_1d_gmm(xr, gmm, Q, y)
-    Qz = Q * xr
+function logpos_1d_gmm(xr, gmm, y)
+    # Qz = Q * xr
     # logprior = -1/2 * (Qz)' * invΓ_pr * (Qz)
     logprior = -1/2 * xr' * invΓ_z * xr
     logprior[1] + gmm_likelihood(gmm, xr, y) #logpdf(gmm, y) 
@@ -62,29 +65,29 @@ end
 #     logprior[1] + logsumexp(expTerm)#log(likelihood) 
 # end
 
-function alpha_1d(x, z, μ_pr, invΓ_pr, invΓ_obs, Φ, O, y)
-    lpz = logpos_1d(z, μ_pr, invΓ_pr, invΓ_obs, Φ, O, y)
-    lpx = logpos_1d(x, μ_pr, invΓ_pr, invΓ_obs, Φ, O, y)
+function alpha_1d(x, z, μ_pr, invΓ_pr, invΓ_obs, Φ, O, offset, y)
+    lpz = logpos_1d(z, μ_pr, invΓ_pr, invΓ_obs, Φ, O, offset, y)
+    lpx = logpos_1d(x, μ_pr, invΓ_pr, invΓ_obs, Φ, O, offset, y)
     ratio = lpz-lpx
     return minimum((1, exp(ratio))), lpz, lpx #, dgz, dgx
 end
 
-function alpha_1d_approx(x, z, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
-    lpz = logpos_1d_approx(z, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
-    lpx = logpos_1d_approx(x, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
+function alpha_1d_approx(x, z, μ_pr, Γ_pr, Γ_obs, Φ, O, offset, y)
+    lpz = logpos_1d_approx(z, μ_pr, Γ_pr, Γ_obs, Φ, O, offset, y)
+    lpx = logpos_1d_approx(x, μ_pr, Γ_pr, Γ_obs, Φ, O, offset, y)
     ratio = lpz-lpx
     return minimum((1, exp(ratio))), lpz, lpx #, dgz, dgx
 end
 
-function alpha_1d_gmm(x, z, gmm, Q, y)
-    lpz = logpos_1d_gmm(z, gmm, Q, y)
-    lpx = logpos_1d_gmm(x, gmm, Q, y)
+function alpha_1d_gmm(x, z, gmm, y)
+    lpz = logpos_1d_gmm(z, gmm, y)
+    lpx = logpos_1d_gmm(x, gmm, y)
     ratio = lpz-lpx
     return minimum((1, exp(ratio))), lpz, lpx #, dgz, dgx
 end
 
 
-function mcmc_lis_1d(x0, μ_pr, Γ_pr, Γ_obs, Φ, O, y; N=1000)
+function mcmc_lis_1d(x0, μ_pr, Γ_pr, Γ_obs, Φ, O, y; N=1000, offset=0, logposmethod="covexpand")
     # ensure that x_prev is the whitened version (subtract prior)! 
     x_vals = zeros(N)
     invΓ_pr, invΓ_obs = inv(Γ_pr), inv(Γ_obs)
@@ -98,10 +101,15 @@ function mcmc_lis_1d(x0, μ_pr, Γ_pr, Γ_obs, Φ, O, y; N=1000)
 
     for i in 1:N
         z = proposal_1d(x, propChol)
-        # α, lpz, lpx = alpha_1d(x, z, μ_pr, invΓ_pr, invΓ_obs, Φ, O, y)
-        α, lpz, lpx = alpha_1d_gmm(x, z, gmm, Φ, y)
-        # α, lpz, lpx = alpha_1d_approx(x, z, μ_pr, invΓ_pr, Γ_obs, Φ, O, y)
-        
+        if logposmethod == "pseudomarg"
+            α, lpz, lpx = alpha_1d(x, z, μ_pr, invΓ_pr, invΓ_obs, Φ, O, offset, y)
+        elseif logposmethod == "gmm"
+            α, lpz, lpx = alpha_1d_gmm(x, z, gmm, y)
+        elseif logposmethod == "covexpand"
+            α, lpz, lpx = alpha_1d_approx(x, z, μ_pr, Γ_pr, Γ_obs, Φ, O, offset, y)
+        end
+
+
 
         if rand(Uniform(0,1)) < α
             x, lpx = z, lpz

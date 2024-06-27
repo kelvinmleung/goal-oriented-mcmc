@@ -37,9 +37,6 @@ x_prsamp = rand(normDist, m)
 z_prsamp = O * x_prsamp
 
 x0 = x_true
-
-
-
 @time x_possamp = mcmc_amm_simple(x0, μ_x, Γ_x, Γ_ϵ, y, m)
 x_pos_mean = mean(x_possamp[:,Int(m/2):end], dims=2)
 z_possamp = O * x_possamp

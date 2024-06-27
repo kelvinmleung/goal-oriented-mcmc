@@ -88,6 +88,30 @@ function gmm_likelihood(gmm, z_input, y)
 
 end
 
+
+# gmm
+# gmm_likelihood(gmm, -0.3, y)
+
+
+
+# z_likelihood = collect(-0.5:0.001:0.5)
+# n_likelihood = length(z_likelihood)
+# likelihood_gmm = zeros(n_likelihood)
+# likelihood_cdr = zeros(n_likelihood)
+# for i = 1:n_likelihood
+#     likelihood_gmm[i] = gmm_likelihood(gmm, z_likelihood[i], y)
+#     likelihood_cdr[i] = cdr_likelihood(z_likelihood[i], μ_x, invΓ_ϵ, Q, O, y)
+# end
+# plot(z_likelihood, likelihood_gmm, linewidth=2, label="GMM", xlabel="Z", ylabel="Log Likelihood")
+# plot!(z_likelihood, likelihood_cdr, linewidth=2, label="CDR")
+
+
+# randgmmcond = rand(gmm_cond, 1000)
+# scatter(randgmmcond[1,:], randgmmcond[2,:], xlims=(-0.5,1.), ylims=(-1.,1.))
+
+# randgmmcond = rand(gmm, 1000)
+# scatter(randgmmcond[:,1], randgmmcond[:,2], xlims=(-0.5,1.), ylims=(-1.,1.))
+
 # z_input = 0.5 #z_prsamp[1,1]
 
 

@@ -79,8 +79,10 @@ function fwdtoy(x)
     x1, x2, x3 = x
     g1 = cos(x1 )+ x2^2 
     g2 = x1 - x3 
-    # g3 = x1^2 + cos(x2)
     g3 = x1^2 + sin(x2)
+    # g1 = x1 + x2
+    # g2 = x1 - x3 
+    # g3 = x1 + x2 + x3
     return [g1; g2; g3]
 end
 
@@ -89,8 +91,28 @@ function dfwdtoy(x)
     dg = [[-sin(x1) 2*x2 0]; 
         [1 0 -1]; 
         [2*x1 cos(x2) 0]]
+    # dg = [[1 1 0]; 
+    #     [1 0 -1]; 
+    #     [1 1 1]]
     return dg
 end
+
+# function fwdtoy(x)
+#     x1, x2, x3 = x
+#     g1 = x1 + x2^2 
+#     g2 = x1 - x3 
+#     # g3 = x1^2 + cos(x2)
+#     g3 = x1^2 + x2
+#     return [g1; g2; g3]
+# end
+
+# function dfwdtoy(x)
+#     x1, x2, x3 = x
+#     dg = [[1 2*x2 0]; 
+#         [1 0 -1]; 
+#         [2*x1 1 0]]
+#     return dg
+# end
 
 # function fwdtoy(x)
 #     x1, x2 = x
