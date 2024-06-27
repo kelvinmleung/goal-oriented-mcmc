@@ -1,4 +1,4 @@
-include("inverseProblem.jl")
+include("forward.jl")
 using Random, LinearAlgebra, Distributions
 using AOE
 λ_ranges = [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]
@@ -57,22 +57,6 @@ function mcmc_bm(μ_pr, Γ_pr, Γ_obs, y, N)
 
         z_atm = copy(x)
         z_atm[1:2] = proposal(x[1:2], propCholAtm)
-
-        ###### Begin truncated proposal ######
-        # use this truncated proposal!
-        # propDist = Truncated(MvNormal(x[1:2], propCholAtm * propCholAtm'), zeros(2), ones(2)*Inf)
-
-        # propDist1 = Truncated(Normal(x[1], propCholAtm[1,1]), 0., Inf)
-        # propDist2 = Truncated(Normal(x[2], propCholAtm[2,2]), 0., Inf)
-
-        # z_atm[1:2] = rand(propDist)
-        # println(rand(propDist))
-        # z_atm[1] = rand(propDist1)
-        # z_atm[2] = rand(propDist2)
-
-        # println(x[1:2])
-        # println(z_atm[1:2])
-        ###### End truncated proposal ######
 
         α_atm, logposZ, logposX = alpha_bm(x, z_atm, μ_pr, invΓ_pr, invΓ_obs, y)
         if rand() < α_atm
