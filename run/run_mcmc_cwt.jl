@@ -1,5 +1,6 @@
-include("inverseProblem.jl")
-include("mcmc_1d.jl")
+include("../src/forward.jl")
+include("../src/mcmc_1d.jl")
+include("../src/mcmc_aoe.jl")
 using StatsPlots, NPZ, AOE
 
 Random.seed!(123)
@@ -12,12 +13,13 @@ rdbufs = get_RetrievalData_bufs(326)
 
 
 n, p = 326, 1
+nλ=326
 
-O = vcat(zeros(2), npzread("data_canopy/goal_op_8_unscaled.npy"))' / npzread("data_canopy/prscale_1_1.npy")
-O_offset = npzread("data_canopy/goal_op_const_8_unscaled.npy")
-x_true = npzread("data_canopy/s_true.npy")[1,1,:] #x_true atm = 0.19, 1.31
+O = vcat(zeros(2), npzread("data/data_canopy/goal_op_8_unscaled.npy"))' / npzread("data/data_canopy/prscale_1_1.npy")
+O_offset = npzread("data/data_canopy/goal_op_const_8_unscaled.npy")
+x_true = npzread("data/data_canopy/s_true.npy")[1,1,:] #x_true atm = 0.19, 1.31
 z_true = O[3:end]' * x_true + O_offset
-y = npzread("data_canopy/y.npy")[1,1,:] + rand(noiseDist)
+y = npzread("data/data_canopy/y.npy")[1,1,:] + rand(MvNormal(zeros(n), diagm(AOE.dummy_noisemodel(npzread("data/data_canopy/y.npy")[1,1,:]))))
 
 
 xa, xs = AOE.invert(y, rdbufs[1], rtmodel, priormodel)
@@ -26,10 +28,10 @@ dfx = AOE.gradfwd_accel(xa, xs, rtmodel, fx)[:,3:end]
 x_map = vcat(xa,xs)
 
 # Inference parameters
-μ_x = vcat([0.2; 1.3], npzread("data_canopy/prmean_1_1.npy"))
+μ_x = vcat([0.2; 1.3], npzread("data/data_canopy/prmean_1_1.npy"))
 Γ_x = zeros((328, 328))
 Γ_x[1:2,1:2] = [0.01 0; 0 0.04]
-Γ_x[3:end,3:end] = npzread("data_canopy/prcov_1_1.npy")
+Γ_x[3:end,3:end] = npzread("data/data_canopy/prcov_1_1.npy")
 
 Γ_ϵ = diagm(AOE.dummy_noisemodel(y))# diagm(y * 1e-4)
 
@@ -51,7 +53,7 @@ z_prsamp = (O * x_prsamp)' .+ O_offset
 
 x_prsamp = rand(normDist, m)
 z_prsamp = O * x_prsamp
-noiseDist = MvNormal(zeros(nλ), Γ_ϵ)
+noiseDist = MvNormal(zeros(n), Γ_ϵ)
 y_prsamp_pred = rand(noiseDist, m)
 
 for i = 1:m
@@ -63,20 +65,31 @@ nComp = 10
 
 gmm = GMM(nComp, yz_prsamp, method=:kmeans, kind=:full, nInit=100, nIter=50, nFinal=50)
 
+@time x_possamp = mcmc_bm_3block(μ_x, Γ_x, Γ_ϵ, y, 1000000)
+# x_pos_mean = mean(x_possamp[:,Int(m/2):end], dims=2)
+z_possamp_naive = (O * x_possamp)' .+ O_offset
+
 
 # low rank 1D
-@time z_possamp_lowrank_covexpand = mcmc_lis_1d(vcat(xa,xs), μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m, offset=O_offset, logposmethod="covexpand") .+ O_offset
-@time z_possamp_lowrank_gmm = mcmc_lis_1d(vcat(xa,xs), μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m, offset=O_offset, logposmethod="gmm") .+ O_offset
+@time z_possamp_lowrank_covexpand = mcmc_lis_1d(vcat(xa,xs), μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m, logposmethod="covexpand") .+ O_offset
+npzwrite("data/data_canopy/z_covexpand_june28.npy", z_possamp_lowrank_covexpand)
 
+@time z_possamp_lowrank_gmm = mcmc_lis_1d(vcat(xa,xs), μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m, logposmethod="gmm") .+ O_offset
+npzwrite("data/data_canopy/z_gmm_june28.npy", z_possamp_lowrank_gmm)
+
+@time z_possamp_lowrank_pseudomarg = mcmc_lis_1d(vcat(xa,xs), μ_x, Γ_x, Γ_ϵ, Q, O, y; N=m, logposmethod="pseudomarg") .+ O_offset
+npzwrite("data/data_canopy/z_naive_june28.npy", z_possamp_naive)
 
 
 
 density(z_possamp_lowrank_gmm[2000:1:end], color=:blue, linewidth=2, label="Low Rank - GMM",  title="1D Goal Posterior - Marginal Density")
 density!(z_possamp_lowrank_covexpand[2000:1:end], color=:red, linewidth=2, label="Low Rank - CovExpand")
-# density!(z_prsamp[1:1:end], color=:black÷ linewidth=1, label="Prior")
-density!(z_laplacesamp[1:1:end], color=:red, linewidth=1, label="Laplace")
+# density!(z_possamp_lowrank_pseudomarg[2000:1:end], color=:green, linewidth=2, label="Low Rank - Pseudomarg")
 
-# density!(z_possamp[950000:10:end], color=:red, linewidth=2, label="Naive")#, xlim=[0.1,0.4])
+# density!(z_prsamp[1:1:end], color=:black÷ linewidth=1, label="Prior")
+# density!(z_laplacesamp[1:1:end], color=:red, linewidth=1, label="Laplace")
+
+density!(z_possamp_naive[20000:10:end], color=:black, linewidth=2, label="Naive")#, xlim=[0.1,0.4])
 plot!([z_true], seriestype="vline", color=:black, linewidth=3, label="Truth")
 
 

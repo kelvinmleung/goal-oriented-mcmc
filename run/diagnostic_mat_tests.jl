@@ -1,10 +1,12 @@
-include("inverseProblem.jl")
-include("mcmc.jl")
-include("mcmc_1d.jl")
+include("../src/forward.jl")
+# include("../src/mcmc.jl")
+# include("../src/mcmc_1d.jl")
 
 Random.seed!(123)
-using StatsPlots, NPZ
+using StatsPlots, NPZ, FiniteDiff
 
+
+data_dir = "data/data_canopy/"
 ### Meeting with Mathieu
 
 n, p = 326, 1
@@ -34,17 +36,21 @@ plot(AOE.dummy_noisemodel(y))
 x_concat = vcat([0.1,1.5], x_true)
 fx = aoe_fwdfun(x_concat)
 
-finitediff = FiniteDiff.finite_difference_jacobian(aoe_fwdfun, x_concat)
-analyticgrad = aoe_gradfwdfun(x_concat, fx)
+# analyticgrad = aoe_gradfwdfun(x_concat, fx)
+# finitediff = FiniteDiff.finite_difference_jacobian(aoe_fwdfun, x_concat)
+@time analyticgrad = AOE.gradfwd_accel(x_concat[1:2], x_concat[3:end], rtmodel, fx);
+
+@time finitediff = FiniteDiff.finite_difference_jacobian(aoe_fwdfun, x_concat)
+diffgrad = finitediff - analyticgrad ### CHECK THIS
+
 finitediff - analyticgrad ### CHECK THIS
 
+plot(diag(diffgrad[:,3:end]))
 
 
 # finite difference
 
 
-
-minimum(AOE.dummy_noisemodel(y))
 ###AUTODIFF CHECK
 ### using Test
 # create test folder
@@ -52,11 +58,11 @@ minimum(AOE.dummy_noisemodel(y))
 
 
 
-O = vcat(zeros(2), npzread("data_canopy/goal_op_8_unscaled.npy"))' / npzread("data_canopy/prscale_1_1.npy")
-O_offset = npzread("data_canopy/goal_op_const_8_unscaled.npy")
-x_true = npzread("data_canopy/s_true.npy")[1,1,:] #x_true atm = 0.19, 1.31
+O = vcat(zeros(2), npzread(data_dir * "goal_op_8_unscaled.npy"))' / npzread(data_dir * "prscale_1_1.npy")
+O_offset = npzread(data_dir * "goal_op_const_8_unscaled.npy")
+x_true = npzread(data_dir * "s_true.npy")[1,1,:] #x_true atm = 0.19, 1.31
 z_true = O[3:end]' * x_true + O_offset
-y = npzread("data_canopy/y.npy")[1,1,:]
+y = npzread(data_dir * "y.npy")[1,1,:]
 
 # xa, xs = AOE.invert(y, rdbufs[1], rtmodel, priormodel)
 fx = AOE.fwdfun(xa, xs, rtmodel) 
@@ -64,10 +70,10 @@ dfx = AOE.gradfwd_accel(xa, xs, rtmodel, fx)[:,3:end]
 # x_map = vcat(xa,xs)
 
 # Inference parameters
-μ_x = vcat([0.2; 1.3], npzread("data_canopy/prmean_1_1.npy"))
+μ_x = vcat([0.2; 1.3], npzread(data_dir * "prmean_1_1.npy"))
 Γ_x = zeros((328, 328))
 Γ_x[1:2,1:2] = [0.01 0; 0 0.04]
-Γ_x[3:end,3:end] = npzread("data_canopy/prcov_1_1.npy")
+Γ_x[3:end,3:end] = npzread(data_dir * "prcov_1_1.npy")
 Γ_ϵ = diagm(y * 1e-4)
 μ_z = O * μ_x
 Γ_z = O * Γ_x * O'
@@ -75,46 +81,43 @@ invΓ_x, invΓ_z, invΓ_ϵ = inv(Γ_x), inv(Γ_z), inv(Γ_ϵ)
 Q = Γ_x * O' * invΓ_z
 
 
-N = 1000
-H = zeros((326,326))
+N = 10000
 
+# NON WHITENED
+H = zeros((326,326))
+@time for i = 1:N
+    randx = rand(MvNormal(μ_x, Γ_x))
+    fx = aoe_fwdfun(randx)
+    dfx = aoe_gradfwdfun(randx, fx)
+    # dfx = FiniteDiff.finite_difference_jacobian(aoe_fwdfun, randx)
+
+    H = H + 1/N * dfx * reshape(O', 328,1) * O * dfx' 
+end
+F = svd(H)
+S = F.S
+display(plot(S, yaxis=:log, label="", title="Diagnostic Matrix - Non Whitened"))
+
+
+# WHITENED
+H = zeros((326,326))
+invsqrtΓ_ϵ = inv(sqrt(Γ_ϵ))
 for i = 1:N
     randx = rand(MvNormal(μ_x, Γ_x))
     fx = aoe_fwdfun(randx)
     dfx = aoe_gradfwdfun(randx, fx)
+    # dfx = FiniteDiff.finite_difference_jacobian(aoe_fwdfun, randx)
 
-    H = H + 1/N * dfx * reshape(O', 328,1) * O * dfx' 
+    H = H + 1/N * invsqrtΓ_ϵ * dfx * Γ_x *  reshape(O', 328,1) * O * Γ_x * dfx' * invsqrtΓ_ϵ
 end
-# print(size(dfx), size(reshape(O', 328,1)), size(O), size(dfx'))
-size(dfx)
-size(O)
-size(invΓ_ϵ)
 F = svd(H)
 S = F.S
-plot(S, yaxis=:log)
-
-
-plot(cumsum(S)/sum(S))
-
-fx = aoe_fwdfun(vcat([0.1,1.5], x_true))
-dfx = aoe_gradfwdfun(vcat([0.1,1.5], x_true),fx)
-
-
-
-
-
-F = svd(sqrt.(invΓ_ϵ) * dfx * dfx' * sqrt.(invΓ_ϵ));
-
-F = svd(sqrt.(invΓ) * dfx' * dfx * sqrt.(invΓ_ϵ));
-plot(F.S, yaxis=:log)
-S = F.S
-plot(cumsum(S)/sum(S) )
+display(plot(S, yaxis=:log, label="", title="Diagnostic Matrix - Whitened"))
 
 
 
 
 
 
-G = [ 1 10; 1 -1]
-svd(G)
-plot()
+# G = [ 1 10; 1 -1]
+# svd(G)
+# plot()
