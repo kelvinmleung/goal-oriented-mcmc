@@ -11,12 +11,12 @@ end
 function logpos_1d_covexpand(xr, μ_pr, Γ_pr, Γ_obs, invΓ_xr, Q, O, y) # use the linearized likelihood
 
     Qz = Q * xr 
-    gx = aoe_fwdfun(Qz + μ_pr) 
-    gdx = aoe_gradfwdfun(Qz + μ_pr, gx)
-    # gx = fwdtoy(Qz + μ_pr) 
-    # gdx = dfwdtoy(Qz + μ_pr)
+    # gx = aoe_fwdfun(Qz + μ_pr) 
+    # gdx = aoe_gradfwdfun(Qz + μ_pr, gx)
+    gx = fwdtoy(Qz + μ_pr) 
+    gdx = dfwdtoy(Qz + μ_pr)
 
-    Γ_Δ = Γ_obs + gdx * (Γ_pr - Φ * O * Γ_pr) * gdx'
+    Γ_Δ = Γ_obs + gdx * (Γ_pr - Q * O * Γ_pr) * gdx'
     invΓ_obs = inv(cholesky(tril(Γ_Δ)+ tril(Γ_Δ,-1)'))
     logprior = 1/2 * xr' * invΓ_xr * xr
     loglikelihood = -1/2 * (y - gx)' * invΓ_obs * (y - gx) - 1/2 * logdet(Γ_Δ)
@@ -29,9 +29,9 @@ function logpos_1d(xr, μ_pr, Γ_pr, invΓ_obs, invΓ_xr, Q, O, y; m=1000)
     logprior = -1/2 * xr' * invΓ_xr * xr
     
     expTerm = zeros(m)
-    for i in 1:m
-        gx_augment = vec(fwdtoy(Qz + μ_pr + sqrt((I - Q * O) * Γ_pr) * randn(3)))
-        # gx_augment = vec(aoe_fwdfun(Qz + μ_pr + sqrt((I - Q * O) * Γ_pr) * randn(328)))
+    @time for i in 1:m
+        # gx_augment = vec(fwdtoy(Qz + μ_pr + sqrt((I - Q * O) * Γ_pr) * randn(3)))
+        gx_augment = vec(aoe_fwdfun(Qz + μ_pr + sqrt((I - Q * O) * Γ_pr) * randn(328)))
         expTerm[i] = -1/2 * (y - gx_augment)' * invΓ_obs * (y - gx_augment)
     end
     logprior[1] + logsumexp(expTerm)

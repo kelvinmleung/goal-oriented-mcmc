@@ -2,8 +2,8 @@ using LinearAlgebra, Random, Distributions, GaussianMixtures
 using AOE
 
 λ_ranges = [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]
-priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
-rtmodel = AOE.get_radiative_transfer_modtran(:LUTRT1; λ_ranges);
+priormodel, wls = get_priormodel(:standard; λ_ranges) 
+rtmodel = AOE.get_radiative_transfer(:modtran; λ_ranges);
 
 function aoe_fwdfun(x)
     xa = x[1:2]
@@ -14,14 +14,13 @@ end
 function aoe_gradfwdfun(x, fx)
     xa = x[1:2]
     xs = x[3:end]
-    # AOE.gradfwd(xa, xs, rtmodel) 
     AOE.gradfwd_accel(xa, xs, rtmodel, fx) 
 end
 
 
 function fwdtoy(x)
     x1, x2, x3 = x
-    g1 = cos(x1 )+ x2^2 
+    g1 = cos(x1)+ x2^2 
     g2 = x1 - x3 
     g3 = x1^2 + sin(x2)
     # g1 = x1 + x2
@@ -113,9 +112,34 @@ function gmm_likelihood(gmm, z_input, y)
     logpdf(gmm_cond, y)
 end
 
+function gmm_pos_samp(gmm, y, m)
+    yz_weights = weights(gmm)
+    yz_means = means(gmm)
+    yz_covs = covars(gmm)
+
+    nComp = length(yz_weights)
+    ygz_means = zeros(nComp)
+    ygz_covs = zeros(nComp)
+
+    for i in 1:nComp
+        invcovyy = inv(yz_covs[i][1:end-1,1:end-1])
+        ygz_covs[i] = yz_covs[i][end,end] - dot(yz_covs[i][end,1:end-1], invcovyy * yz_covs[i][1:end-1,end])
+        ygz_means[i] = yz_means[i,end] + dot(yz_covs[i][end,1:end-1], invcovyy * (y - yz_means[i,1:end-1]) ) 
+    end
+
+    mixtureDef = []
+    for i in 1:nComp
+        push!(mixtureDef, (ygz_means[i], ygz_covs[i]))
+    end
+
+    gmm_cond = MixtureModel(Normal, mixtureDef, yz_weights)
+    
+    rand(gmm_cond, m)
+end
+
 function covexpand_likelihood(z_input, μ_pr, Γ_pr, Γ_obs, Q, O, y) # use the linearized likelihood
 
-    Qz = Q * z_input#+ x0 
+    Qz = Q * z_input
     # gx = fwdtoy(Qz + μ_pr) 
     # gdx = dfwdtoy(Qz + μ_pr)
     gx = aoe_fwdfun(Qz + μ_pr)

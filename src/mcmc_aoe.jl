@@ -3,7 +3,7 @@ using Random, LinearAlgebra, Distributions
 using AOE
 λ_ranges = [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]
 priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
-rtmodel = AOE.get_radiative_transfer_modtran(:LUTRT1; λ_ranges);
+rtmodel = AOE.get_radiative_transfer(:modtran; λ_ranges);
 
 
 function logpos_bm(x, μ_pr, invΓ_pr, invΓ_obs, y)
