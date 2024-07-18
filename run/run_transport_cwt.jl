@@ -88,8 +88,6 @@ end
 
 function diagnostic_matrix(N::Int)
     # N = 10000
-
-    # WHITENED
     H = zeros((n,n))
     invsqrtΓ_ϵ = inv(sqrt(setup.Γ_ϵ))
     println("Monte Carlo estimate of diagnostic matrix...")
@@ -98,16 +96,14 @@ function diagnostic_matrix(N::Int)
         fx = aoe_fwdfun(randx)
         dfx = aoe_gradfwdfun(randx, fx)
         H = H + 1/N * invsqrtΓ_ϵ * dfx * setup.Γ_x * reshape(setup.O', n+2,1) * setup.invΓ_z * setup.O * setup.Γ_x * dfx' * invsqrtΓ_ϵ
-
     end
     H
 end
 
-function energy_cutoff(Λy, ratio; rydefault = 50)
+function energy_cutoff(Λy::AbstractVector{T}, ratio::T; rydefault = 50) where T <: Real
     ry = ratio < 1.0 ? findfirst(x-> x >= ratio, cumsum(Λy)./sum(Λy)) : rydefault
     ry = isnothing(ry) ? 1 : ry 
 end
-
 
 function whiten_samples(setup::GODRdata{T}, samps::EnsembleSamples{T}, μ_y::Vector{T}, V_r::AbstractMatrix{T}) where T <: Real
     
@@ -120,9 +116,6 @@ function whiten_samples(setup::GODRdata{T}, samps::EnsembleSamples{T}, μ_y::Vec
     yobs_whiten = V_r' * invsqrtΓ_ϵ * (setup.y - μ_y)
     y_whiten, yobs_whiten, z_whiten
 end
-
-
-# histogram(z_whiten[1:10:end])
 
 function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractVector{T}, Ny::Int; order::Int = 10) where T <: Real
     # S = HermiteMap(order, X; diag = true, factor = 1., α = 1e-6, b = "CstProHermiteBasis");
