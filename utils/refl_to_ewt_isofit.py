@@ -20,17 +20,36 @@ from isofit.inversion import inverse_simple as inv
 # cwt = inv.invert_liquid_water(rfl, wl)[0]
 # print(cwt)
 
-sampPr = np.load("data_canopy/priorSamples_4_unscaled.npy")
-wl = np.load("/Users/kmleung/Documents/Github/goal-oriented-mcmc/data_refl/wls.npy")
-Nsamp = np.size(sampPr,1)
-cwt = np.zeros(Nsamp)
+# sampPr = np.load("data_canopy/priorSamples_4_unscaled.npy")
+# wl = np.load("/Users/kmleung/Documents/Github/goal-oriented-mcmc/data_refl/wls.npy")
+# Nsamp = np.size(sampPr,1)
+# cwt = np.zeros(Nsamp)
 
-for i in range(Nsamp):
-    if (i+1) % 100 == 0:
-        print("Iteration:" , i+1)
-    cwt[i] = inv.invert_liquid_water(sampPr[:,i], wl)[0]
+# for i in range(Nsamp):
+#     if (i+1) % 100 == 0:
+#         print("Iteration:" , i+1)
+#     cwt[i] = inv.invert_liquid_water(sampPr[:,i], wl)[0]
 
-print(cwt[:10])
-np.save("data_canopy/cwt_priorSamples_4_unscaled.npy", cwt)
+# print(cwt[:10])
+# np.save("data_canopy/cwt_priorSamples_4_unscaled.npy", cwt)
+
+
+
+
+sampPr = np.load("data/data_canopy/prsamp_all_unscaled.npy")
+wl = np.load("/Users/kmleung/Documents/Github/goal-oriented-mcmc/data/data_refl/wls.npy")
+
+for j in range(8):
+
+    Nsamp = np.size(sampPr,1)
+    cwt = np.zeros(Nsamp)
+
+    for i in range(Nsamp):
+        if (i+1) % 100 == 0:
+            print("Iteration:" , i+1)
+        cwt[i] = inv.invert_liquid_water(sampPr[j,i,:], wl)[0]
+
+    print(cwt[:10])
+    np.save("data/data_canopy/cwt_prsamp_" + str(j+1) + "_unscaled.npy", cwt)
 
 
