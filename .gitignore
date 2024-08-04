@@ -1,3 +1,5 @@
+*.jld
+*.jld2
 *.png
 /data
 /LUTdata

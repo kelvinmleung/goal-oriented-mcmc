@@ -133,7 +133,7 @@ end
 function diagnostic_matrix(N::Int, invsqrtΓ_y)
     # N = 10000
     H = zeros((n,n))
-    invsqrtΓ_ϵ = inv(sqrt(setup.Γ_ϵ))
+    # invsqrtΓ_ϵ = inv(sqrt(setup.Γ_ϵ))
     println("Monte Carlo estimate of diagnostic matrix...")
     @time for i = 1:N
         randx = rand(MvNormal(setup.μ_x, setup.Γ_x))
@@ -143,11 +143,22 @@ function diagnostic_matrix(N::Int, invsqrtΓ_y)
         H = H + 1/N * invsqrtΓ_y * dfx * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * dfx' * invsqrtΓ_y
 
     end
-
-    # H_mat = invsqrtcovy * gradG * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * gradG' * invsqrtcovy
-
     H
 end
+
+function diagnostic_matrix_no_goal(N::Int, invsqrtΓ_y)
+    # N = 10000
+    H = zeros((n,n))
+    println("Monte Carlo estimate of diagnostic matrix...")
+    @time for i = 1:N
+        randx = rand(MvNormal(setup.μ_x, setup.Γ_x))
+        fx = aoe_fwdfun(randx)
+        dfx = aoe_gradfwdfun(randx, fx)
+        H = H + 1/N * invsqrtΓ_y * dfx * setup.Γ_x * dfx' * invsqrtΓ_y
+    end
+    H
+end
+
 
 function diagnostic_matrix_nonwhiten(N::Int)
     # N = 10000
@@ -161,6 +172,11 @@ function diagnostic_matrix_nonwhiten(N::Int)
         H = H + 1/N * dfx * reshape(setup.O', n+2,1) * setup.O * dfx' 
     end
     H
+end
+
+function pca_matrix(covy)
+    invstdy = diagm(1 ./ sqrt.(diag(covy)))
+    invstdy * covy * invstdy
 end
 
 function diagnostic_eigendecomp(H::AbstractMatrix{T}; showplot::Bool = false, setup::GODRdata{T}) where T <: Real
@@ -218,6 +234,23 @@ function whiten_samples(setup::GODRdata{T}, samps::EnsembleSamples{T}, μ_y::Vec
     y_whiten, yobs_whiten, z_whiten
 end
 
+function kldiv(μ1, Σ1, μ2, Σ2)
+    invΣ2 = inv(Σ2)
+    # https://mr-easy.github.io/2020-04-16-kl-divergence-between-2-gaussian-distributions/
+    0.5 * ( logdet(Σ2) - logdet(Σ1) - length(μ1) + (μ1 - μ2)' * invΣ2 * (μ1 - μ2) + tr(invΣ2 * Σ1) )
+end
+
+
+function cond_gaussian_analytic(Vr, G, O, μ_x, Γ_x, Γ_y, y)
+    μ_z = O * μ_x
+    Γ_z = O * Γ_x * O'
+    cov_vry_z = Vr' * G * Γ_x * O' 
+    cov_vry = Vr' * Γ_y * Vr
+    μ_z_g_vry = μ_z .- cov_vry_z' * inv(cov_vry) * (Vr' * G * μ_x - Vr' * y)
+    Γ_z_g_vry = Γ_z - cov_vry_z' * inv(cov_vry) * cov_vry_z
+    μ_z_g_vry, Γ_z_g_vry
+end
+
 function apply_cond_gaussian(X::AbstractMatrix{T}, yobs::AbstractVector{T}; whitened=false) where T <: Real #, V, setup, μ_y
     jointmean = mean(X, dims=2)
     jointcov = cov(X, dims=2)
@@ -226,7 +259,7 @@ function apply_cond_gaussian(X::AbstractMatrix{T}, yobs::AbstractVector{T}; whit
     Σ_zz = @view jointcov[end, end]
     Σ_yz = @view jointcov[1:end-1, end]
 
-    display(jointcov)
+    # display(jointcov)
     if whitened
         μ_zgy = Σ_yz'* yobs
         Σ_zgy = Σ_zz .- Σ_yz' * Σ_yz
@@ -236,7 +269,7 @@ function apply_cond_gaussian(X::AbstractMatrix{T}, yobs::AbstractVector{T}; whit
         Σ_zgy = Σ_zz .- Σ_yz' * invΣ_yy * Σ_yz
     end
        
-    μ_zgy, Σ_zgy
+    μ_zgy[1], Σ_zgy
 end
 
 function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny::Int; order::Int = 10) where T <: Real
@@ -245,7 +278,6 @@ function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny
     @time S = optimize(S, X, "split"; maxterms = 30, withconstant = true, withqr = true, verbose = true, 
                                   maxpatience = 30, start = 1, hessprecond = true)
     
-
     # plot(S; start = Ny+1)
     # plot(S)
     F = evaluate(S, X; start = Ny+1)

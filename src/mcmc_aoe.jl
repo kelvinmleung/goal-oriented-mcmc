@@ -109,7 +109,7 @@ function mcmc_bm(μ_pr, Γ_pr, Γ_obs, y, N)
 end
 
 
-function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N) 
+function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45]) 
     # block metropolis
 
     r = 2
@@ -117,7 +117,8 @@ function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N)
     invΓ_pr, invΓ_obs = inv(Γ_pr), inv(Γ_obs)
 
     rdbufs = get_RetrievalData_bufs(length(wls)) 
-    xa, xs = AOE.invert(y, rdbufs[1], rtmodel, priormodel)
+    _, xs = AOE.invert(y, rdbufs[1], rtmodel, priormodel; xa0guess=xa)
+    
     fx = AOE.fwdfun(xa, xs, rtmodel) 
     dfx = AOE.gradfwd_accel(xa, xs, rtmodel, fx)[:,3:end]
 

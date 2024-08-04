@@ -10,16 +10,19 @@ priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
 rtmodel = AOE.get_radiative_transfer(:modtran; λ_ranges);
 n, p = 326, 1
 m = 1000000
-m_naive = 3000000
 
 
 setup = initialize_GODRdata(n, p)
 GODRdata_from_10pix!(setup, 1,1);
 
-setup.x_true .= rand(MvNormal(setup.μ_x, setup.Γ_x), 1)[3:end]
-setup.z_true .= setup.O[3:end]' * setup.x_true .+ setup.O_offset;
-setup.y .= aoe_fwdfun(vcat([0.2; 1.45], setup.x_true))
 
+# setup.x_true .= rand(MvNormal(setup.μ_x, setup.Γ_x), 1)[3:end]
+# setup.z_true .= setup.O[3:end]' * setup.x_true .+ setup.O_offset;
+# setup.y .= aoe_fwdfun(vcat([0.2; 1.45], setup.x_true)) + rand(MvNormal(zeros(n),AOE.dummy_noisemodel(aoe_fwdfun(vcat([0.2; 1.45], setup.x_true)))), 1)
+# # save("values_for_plot.jld", "x", setup.x_true, "y", setup.y, "z", setup.z_true)
+setup.x_true .= load("values_for_plot.jld", "x")
+setup.y .= load("values_for_plot.jld", "y")
+setup.z_true .= load("values_for_plot.jld", "z")
 
 # ## Linear version to test
 # fx, gradG, μ_xgy, Γ_xgy = replace_with_linearized_model!(setup);
@@ -43,10 +46,10 @@ meany = mean(prsamp.y, dims=2)
 
 # H_mat = invsqrtcovy * gradG * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * gradG' * invsqrtcovy
 H_mat = diagnostic_matrix(10000, invsqrtcovy)
+# H_mat = diagnostic_matrix_no_goal(10000, invsqrtcovy)
 
 eigs, V = diagnostic_eigendecomp(H_mat; showplot=true, setup=setup)
-eigs = real(eigs)
-V = real(V)
+
 
 # plot(wls,invsqrtΓ_z .* (V[:,1]' * sqrtΓ_x[3:end,3:end])', linewidth=2, label="Diagnostic with Goal", title="Leading Eigenvector")
 # plot!(wls,invsqrtΓ_z .* (V[:,1]' * inv(sqrt(cov(prsamp.y,dims=2))))', linewidth=2, label="Diagnostic with Goal", title="Leading Eigenvector")
@@ -62,7 +65,9 @@ V = real(V)
 
 
 r = energy_cutoff(eigs, 0.99)
-r = 2
+
+
+r=2
 V_r = invsqrtcovy * V[:,1:r]
 
 plot(wls,  V[:,1:r] )
@@ -73,11 +78,11 @@ plot(wls,  V[:,1:r] )
 X = vcat(V_r' * prsamp.y, sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:Int(m/10)]
 yobs = repeat(V_r' * setup.y, 1, Int(m/10))
 
-scatter(X[3,:], X[1,:], alpha=0.2)
-plot!([(V_r' * (setup.y - meany))[1]], seriestype=:hline)
+# scatter(X[3,:], X[1,:], alpha=0.2)
+# plot!([(V_r' * (setup.y - meany))[1]], seriestype=:hline)
 
-# scatter(X[3,:], X[2,:])
-plot!([(V_r' * setup.y)[2]], seriestype=:hline)
+# # scatter(X[3,:], X[2,:])
+# plot!([(V_r' * setup.y)[2]], seriestype=:hline)
 
 z_possamp, S, F = apply_cond_transport(X, yobs, r; order=10)
 
@@ -90,12 +95,18 @@ z_possamp_transport =  sqrt(setup.Γ_z) .* z_possamp .+ setup.μ_z .+ setup.O_of
 μ_zgy, Σ_zgy = apply_cond_gaussian(X, vec(V_r' * setup.y); whitened=false)
 zgy_samp =  sqrt(setup.Γ_z) .* rand(Normal(μ_zgy[1,1], sqrt(Σ_zgy)), m) .+ setup.O_offset .+ setup.μ_z
 
+z_possamp_naive = npzread("data/data_canopy/aug2/10pix_ind(1,1)/z_naive.npy")
+# z_possamp_transport_godr = npzread("data/data_canopy/aug2/10pix_ind(1,1)/z_transport.npy")
+# npzwrite("data/data_canopy/aug2/10pix_ind(1,1)/z_transport_godr.npy", z_possamp_transport)
+
 # density(z_truepos[1:10:end], color=:black, linewidth=2, label="True Posterior", title="1D Goal Posterior - Marginal Density", legend=:topright, dpi=800, xlim=[0,0.3])#xlim=[0.15,0.3])
 # density(z_possamp_gmm[2000:1:end], color=:red, linewidth=2, label="Low Rank MCMC")#, xlim=[0.15,0.3])
 # plot!(kde_transport.x, kde_transport.density, color=:green, linewidth=2, label="Transport")
-density(z_possamp_transport, label="Transport")
-density!(zgy_samp, label="Schur Complement")
+density(z_possamp_naive[2000000:100:end], linewidth=2, label="MCMC")
+density!(z_possamp_transport[1:10:end], linewidth=2, label="Goal-Oriented SBI", dpi=300, ylims=[-5,110])
+# density!(zgy_samp, label="EnKF Update")
 display(plot!([setup.z_true], seriestype="vline", color=:black, linestyle=:dash,linewidth=3, label="Truth"))
+
 
 # density!(prsamp.z[1:10:end] .+ setup.O_offset , color=:blue, label="Prior")
 
