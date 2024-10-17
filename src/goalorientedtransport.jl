@@ -68,6 +68,96 @@ function GODRdata_from_10pix!(setup::GODRdata{T}, indx::Int, indy::Int; n::Int =
     setup
 end
 
+function GODRdata_prmix!(setup::GODRdata{T}; n::Int = 326, p::Int = 7) where T <: Real
+    prjld = jldopen("./priordata/priors_standard.jld")
+    means = collect(eachcol(prjld["means"][:,:]'))
+    covs = [prjld["covs"][:,:,:][i, :, :] for i ∈ 1:length(means)]
+    pr_λs = load("./LUTdata/wls.jld")["wls"]
+    idx_326 = AOE.get_λ_idx(pr_λs, [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]) #### ADD THIS INTO THE DATA GOAL SLICING
+
+    oper, srfmat = load("data/data_CliMA/goaloperator.jld","oper","srfmat")
+
+
+    nPr = length(means)
+    wgt = 0.125 * ones(nPr)
+    prmean = sum(means .* wgt)[idx_326]
+    prcov = sum(covs .* wgt.^2)[idx_326,idx_326] 
+
+    prmean = means[2][idx_326]
+    prcov = covs[2][idx_326,idx_326] 
+    γ = norm(srfmat * prmean)
+    prmean = prmean ./ γ
+    prcov = prcov ./ γ^2
+
+    setup.O .= hcat(zeros(p,2), oper' * srfmat)
+    setup.O_offset .= load("data/data_CliMA/goaloperator.jld","offset")
+    Random.seed!(09262024)
+    setup.x_true .= rand(MvNormal(prmean, prcov))
+    setup.z_true .= setup.O[:,3:end] * setup.x_true .+ setup.O_offset
+    display(size(vcat([0.2,1.45], setup.x_true)))
+    y = aoe_fwdfun(vcat([0.2,1.45], setup.x_true)) 
+
+    setup.μ_x .= vcat([0.2; 1.45], prmean)
+    setup.Γ_x[1:2,1:2] .= [0.01 0; 0 0.004]
+    setup.Γ_x[3:end,3:end] .= prcov
+    setup.Γ_ϵ .= diagm(AOE.dummy_noisemodel(y)) 
+    setup.y .= y + rand(MvNormal(zeros(n), setup.Γ_ϵ))
+
+    setup.μ_z .= setup.O * setup.μ_x 
+    setup.Γ_z .= setup.O * setup.Γ_x * setup.O'
+    setup.invΓ_x .= inv(setup.Γ_x)
+    setup.invΓ_z .= inv(setup.Γ_z)
+    setup.invΓ_ϵ .= inv(setup.Γ_ϵ)
+
+    setup
+end
+
+function get_srfmat(wls_sobol, wls_ang)
+    wls = wls_sobol
+    wls_spacing = vcat(wls[2] - wls[1], wls[2:end] - wls[1:end-1], wls[end] - wls[end-1])
+    σ_125 = FWHM_to_σ.(0.2 * (wls_spacing[1:end-1] + wls_spacing[2:end]))
+    # σ_125 = FWHM_to_σ.(5.8 * ones(length(wls_sobol)))
+    # display(plot(σ_125))
+    srf_matrix(wls_ang, SRFSpec(wls_sobol, σ_125))
+end
+
+function GODRdata_pr8!(setup::GODRdata{T}; n::Int = 326, p::Int = 6) where T <: Real
+    prjld = jldopen("./priordata/priors_standard.jld")
+    means = collect(eachcol(prjld["means"][:,:]'))
+    covs = [prjld["covs"][:,:,:][i, :, :] for i ∈ 1:length(means)]
+    pr_λs = load("./LUTdata/wls.jld")["wls"]
+    idx_326 = AOE.get_λ_idx(pr_λs, [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]) #### ADD THIS INTO THE DATA GOAL SLICING
+
+    oper, idx_clima, wls_clima, selectQOI  = load("data/data_CliMA/goaloperator_pr8.jld", "goaloperator", "idx_clima", "wls_clima", "selectQOI")
+    oper = oper[:,selectQOI]
+    srfmat = get_srfmat(wls_clima, pr_λs)[idx_clima, idx_326]
+
+
+    prmean = means[8][idx_326]
+    prcov = covs[8][idx_326,idx_326]  / 4
+    
+    setup.O .= hcat(zeros(p,2), oper' * srfmat)
+    setup.O_offset .= load("data/data_CliMA/goaloperator_pr8.jld", "offset")[selectQOI]
+    Random.seed!(123)
+    setup.x_true .= rand(MvNormal(prmean, prcov))
+    setup.z_true .= setup.O[:,3:end] * setup.x_true .+ setup.O_offset
+    y = aoe_fwdfun(vcat([0.2,1.45], setup.x_true)) 
+
+    setup.μ_x .= vcat([0.2; 1.45], prmean)
+    setup.Γ_x[1:2,1:2] .= [0.01 0; 0 0.004]
+    setup.Γ_x[3:end,3:end] .= prcov
+    setup.Γ_ϵ .= diagm(AOE.dummy_noisemodel(y)) 
+    setup.y .= y + rand(MvNormal(zeros(n), setup.Γ_ϵ))
+
+    setup.μ_z .= setup.O * setup.μ_x 
+    setup.Γ_z .= setup.O * setup.Γ_x * setup.O'
+    setup.invΓ_x .= inv(setup.Γ_x)
+    setup.invΓ_z .= inv(setup.Γ_z)
+    setup.invΓ_ϵ .= inv(setup.Γ_ϵ)
+
+    setup
+end
+
 function GODRdata_toy!(setup::GODRdata{T}; n::Int = 2, p::Int = 1) where T <: Real
 
     G = [10. 2.; -1 2]
@@ -130,6 +220,24 @@ function gen_pr_samp(setup::GODRdata{T}, m::Int ; n::Int = 326, p::Int = 1) wher
     prsamp
 end
 
+function gen_pr_samp_with_scale(setup::GODRdata{T}, m::Int ; n::Int = 326, p::Int = 6) where T <: Real
+
+    π_x = MvNormal(setup.μ_x, setup.Γ_x)
+    π_ϵ = MvNormal(zeros(n), setup.Γ_ϵ)
+
+    prsamp = initialize_EnsembleSamples(n, p, m)
+    x_samp = rand(π_x, m)
+    γ_samp = rand(Uniform(1,5), m) 
+    prsamp.z .= setup.O * x_samp
+    
+    println("Applying forward model to prior samples...")
+    @time for i = 1:m
+        prsamp.fx[:,i] .= aoe_fwdfun(vcat(x_samp[1:2,i], x_samp[3:end,i] * γ_samp[i]))
+    end
+    prsamp.y .= prsamp.fx + rand(π_ϵ, m) 
+    prsamp
+end
+
 function diagnostic_matrix(N::Int, invsqrtΓ_y)
     # N = 10000
     H = zeros((n,n))
@@ -187,7 +295,7 @@ function diagnostic_eigendecomp(H::AbstractMatrix{T}; showplot::Bool = false, se
     V = real.(eigvecs(H)[:,end:-1:1])
     if showplot
         p = plot(title="Leading eigenvectors")
-        plot!(wls, setup.O[3:end] ./ norm(setup.O[3:end]), linewidth=1, color=:black, label="O")
+        # plot!(wls, setup.O[3:end] ./ norm(setup.O[3:end]), linewidth=1, color=:black, label="O")
         for i in 1:1
             if maximum(abs.(V[50:end,i])) == maximum(V[50:end,i])
                 plot!(wls,V[:,i], linewidth=2) #sqrt(setup.Γ_ϵ)* 
@@ -251,7 +359,7 @@ function cond_gaussian_analytic(Vr, G, O, μ_x, Γ_x, Γ_y, y)
     μ_z_g_vry, Γ_z_g_vry
 end
 
-function apply_cond_gaussian(X::AbstractMatrix{T}, yobs::AbstractVector{T}; whitened=false) where T <: Real #, V, setup, μ_y
+function apply_cond_gaussian_scalar(X::AbstractMatrix{T}, yobs::AbstractVector{T}; whitened=false) where T <: Real #, V, setup, μ_y
     jointmean = mean(X, dims=2)
     jointcov = cov(X, dims=2)
     μ_y = @view jointmean[1:end-1]
@@ -272,6 +380,21 @@ function apply_cond_gaussian(X::AbstractMatrix{T}, yobs::AbstractVector{T}; whit
     μ_zgy[1], Σ_zgy
 end
 
+function apply_cond_gaussian(X::AbstractMatrix{T}, yobs::AbstractVector{T}, n::Int) where T <: Real #, V, setup, μ_y
+    jointmean = mean(X, dims=2)
+    jointcov = cov(X, dims=2)
+    μ_y = @view jointmean[1:n]
+    μ_z = @view jointmean[n+1:end]
+    Σ_zz = @view jointcov[n+1:end, n+1:end]
+    Σ_yz = @view jointcov[1:n, n+1:end]
+
+    invΣ_yy = inv(jointcov[1:n, 1:n])
+    μ_zgy = μ_z .- Σ_yz' * invΣ_yy * (μ_y - yobs)
+    Σ_zgy = Σ_zz .- Σ_yz' * invΣ_yy * Σ_yz
+    
+    μ_zgy, Σ_zgy
+end
+
 function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny::Int; order::Int = 10) where T <: Real
     # S = HermiteMap(order, X; diag = true, factor = 1., α = 1e-6, b = "CstProHermiteBasis");
     S = HermiteMap(order, X; diag = true, factor = 0.5, α = 1e-6, b = "ProHermiteBasis");
@@ -285,7 +408,6 @@ function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny
     # @time hybridinverse!(Xa[], F, S, Ystar; apply_rescaling = true, start = Ny+1)
     Xa = deepcopy(X)
     @time hybridinverse!(Xa, F, S, Ystar; apply_rescaling = true, start = Ny+1)
-    
-    Xa[end,:], S, F
+    Xa[Ny+1:end,:], S, F
 end
 
