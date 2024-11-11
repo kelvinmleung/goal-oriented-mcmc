@@ -1,5 +1,5 @@
 using TransportBasedInference, StatsPlots, NPZ, AOE, KernelDensity, Random, Distributions
-using LinearAlgebra
+using LinearAlgebra, JLD, SRFTools
 
 struct GODRdata{T}
     x_true::Vector{T}

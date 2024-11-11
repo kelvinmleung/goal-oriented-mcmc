@@ -74,7 +74,12 @@ invsqrtcovy = inv(sqrt(cov(prsamp.y, dims=2)))
 meany = mean(prsamp.y, dims=2)
 H_mat = diagnostic_matrix(10000, invsqrtcovy)
 eigs, V = diagnostic_eigendecomp(H_mat; showplot=true, setup=setup)
-r = energy_cutoff(eigs, 0.99)
+plot!(title="Eigenvalue Decay")
+# savefig("plots/10172024/eigvals.png")
+
+
+r = energy_cutoff(eigs, 0.999)
+r = 326
 
 V_r = invsqrtcovy * V[:,1:r]
 
@@ -85,7 +90,6 @@ yobs = repeat(V_r' * setup.y, 1, Int(m/10))
 
 μ_zgy, Σ_zgy = apply_cond_gaussian(X, vec(V_r' * setup.y), r)
 zgy_samp =  sqrt(setup.Γ_z) * rand(MvNormal(μ_zgy, tril(Σ_zgy, 0) + tril(Σ_zgy, -1)'), m) .+ setup.O_offset .+ setup.μ_z
-# 
 
 keys = ["BROWN","CHL","CBC", "LMA", "PRO", "LWC"]
 keys = ["Senescent material (brown pigments) fraction","Chlorophyll content", "Carbon-based constituents", "Dry leaf mass per unit area", "Protein content", "Leaf water content"]
@@ -96,7 +100,7 @@ for i in 1:p
     density(zgy_samp[i, 1:10:end], label="EnKF Update")
     density!(prsamp.z[i, 1:10:end] .+ setup.O_offset[i], label="Prior")
     display(plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dash,linewidth=3, label="Truth", title=keys[i],  legend=:bottomright)) #xlim=xlims[i],
-    # savefig("plots/10032024/qoi_$i.png")
+    # savefig("plots/10172024/qoi_$(i)_both.png")
 end
 
 
