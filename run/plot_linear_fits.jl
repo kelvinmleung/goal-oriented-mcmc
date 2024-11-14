@@ -139,7 +139,7 @@ for (i, idx) ∈ enumerate(selectQOI)
     scatter(y_true[1:2:end],y_pred[1:2:end], title=keys_goal[idx],  xlabel="Truth", ylabel="Predicted", legend=false, dpi=300, alpha=0.5, size=(300,300))
     plot!([0, maximum(y_true)], [0, maximum(y_true)], color=:red, linewidth=3)
     # plot!(p, scatter, subplot=i)
-    savefig("plots/11112024/linreg_qoi$idx.png")
+    savefig("plots/11112024/linreg_qoi_" * keys_goal[idx] * ".png")
 end
 rsq
 # savefig(p, "plots/11112024/linreg_4qoi.png")

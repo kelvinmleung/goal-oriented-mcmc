@@ -6,7 +6,7 @@ Random.seed!(123)
 λ_ranges = [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]
 priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
 rtmodel = AOE.get_radiative_transfer(:modtran; λ_ranges);
-n, p = 326, 6
+n, p = 326, 4
 m = 100000
 
 setup = initialize_GODRdata(n, p)
@@ -29,9 +29,9 @@ H_pca = covy
 V_godr = invsqrtcovy * V_godr
 V_nogoal = invsqrtcovy * V_nogoal
 
-# ### EIGENVALUE AND EIGENVECTOR PLOTS
-plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, title=L"Eigenvalue Spectrum of $H_{GO}$", ylabel="Eigenvalue")
-savefig("plots/11112024/eigval.png")
+### EIGENVALUE AND EIGENVECTOR PLOTS
+# plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, title=L"Eigenvalue Spectrum of $H_{GO}$", ylabel="Eigenvalue")
+# savefig("plots/11112024/eigval.png")
 # plot!(Λ_nogoal ./ Λ_nogoal[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 # plot!(Λ_pca ./ Λ_pca[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 
@@ -63,38 +63,38 @@ savefig("plots/11112024/eigval.png")
 # savefig("plots/JSM/poszgy.png")
 
 
+### TRANSPORT DENSITY PLOTS
+
+# r = energy_cutoff(Λ_godr, 0.99)
+# V_r = V_godr[:,1:r]
 
 
-r = energy_cutoff(Λ_godr, 0.99)
-V_r = V_godr[:,1:r]
+# X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:Int(m/10)]
+# yobs_whiten = repeat(V_r' * (setup.y - meany), 1, Int(m/10))
+
+# z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
 
 
-X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:Int(m/10)]
-yobs_whiten = repeat(V_r' * (setup.y - meany), 1, Int(m/10))
+# z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
 
-z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
+# keys_goal = ["BROWN","CHL","LMA","LWC"]
+# # selectQOI = [2,3,7,10]
+# for i in 1:p
 
-
-z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
-
-
-selectQOI = [2,3,5,7,9,10]
-for (i, idx) ∈ enumerate(selectQOI)
-
-    plot(title=keys_goal[idx], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
-    plot!(ylabel="Marginal Density")
-    xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
-    xmax = setup.μ_z[i] + setup.O_offset[i]+ 2*sqrt(setup.Γ_z[i,i])
-    plotrange = xmin:(xmax-xmin)/100:xmax
-    plot!(xlims=[xmin, xmax])
-    kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
-    plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
-    # density!(prsamp.z[i,1:10:end] .+ setup.O_offset[i] , color=:black, label="Prior")
-    density!(z_possamp_transport[i,:], color=:red, linewidth=2, label="Transport")
+#     plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+#     plot!(ylabel="Marginal Density")
+#     xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
+#     xmax = setup.μ_z[i] + setup.O_offset[i]+ 2*sqrt(setup.Γ_z[i,i])
+#     plotrange = xmin:(xmax-xmin)/100:xmax
+#     plot!(xlims=[xmin, xmax])
+#     kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
+#     plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
+#     # density!(prsamp.z[i,1:10:end] .+ setup.O_offset[i] , color=:black, label="Prior")
+#     density!(z_possamp_transport[i,:], color=:red, linewidth=2, label="Transport, r=$r")
     
-    display(plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dash,linewidth=3, label="Truth"))
-    savefig("plots/11112024/transportdensity_qoi$idx.png")
-end
+#     display(plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth"))
+#     savefig("plots/11122024/transportdensity_qoi_" * keys_goal[i] * ".png")
+# end
 
 
 
@@ -102,8 +102,8 @@ end
 
 
 #### PLOT OF ERROR COMPARISON
-N_mc = 100
-dimlist = vcat(1:9,10:5:45,50:10:150,160:20:320, 326)
+N_mc = 500
+dimlist = vcat(1:9,10:2:30,40:10:150,160:20:320, 325)
 # N_mc = 1000
 # dimlist = vcat(1:9,10:5:45)
 numdim = length(dimlist)
@@ -142,71 +142,54 @@ for i in 1:N_mc
 
 end
 
-# for j in 1:numdim
-#     for i in 1:N_mc
-#         err_godr[j] = err_godr[j] + 1/N_mc * (μ_zgy_godr[j,i] - μ_zgy_vec[i])^2 / Σ_zgy_godr[j,i]
-#         err_nogoal[j] = err_nogoal[j] + 1/N_mc * (μ_zgy_nogoal[j,i] - μ_zgy_vec[i])^2 / Σ_zgy_nogoal[j,i]
-#         err_pca[j] = err_pca[j] + 1/N_mc * (μ_zgy_pca[j,i] - μ_zgy_vec[i])^2 / Σ_zgy_pca[j,i]
 
-#     end
-# end
-
-# err_godr, err_nogoal, err_pca = zeros(numdim), zeros(numdim), zeros(numdim)
-# for j in 1:numdim
-#     for i in 1:N_mc
-#         err_godr[j] = err_godr[j] + 1/N_mc * (μ_zgy_godr[:,j,i] - z_true[:,i])'  * (μ_zgy_godr[:,j,i] - z_true[:,i]) # *  inv(Σ_zgy_godr[:,:,j,i])
-#         err_nogoal[j] = err_nogoal[j] + 1/N_mc * (μ_zgy_nogoal[:,j,i] -z_true[:,i])' * (μ_zgy_nogoal[:,j,i] -z_true[:,i]) # * inv(Σ_zgy_nogoal[:,:,j,i]) 
-#         err_pca[j] = err_pca[j] + 1/N_mc * (μ_zgy_pca[:,j,i] - z_true[:,i])' *  (μ_zgy_pca[:,j,i] - z_true[:,i])  # * inv(Σ_zgy_pca[:,:,j,i]) 
-#     end
-# end
-
-# err0 = 0
-# for i in 1:N_mc
-#     err0 = err0 + 1/N_mc * (setup.μ_z[:,1] - z_true[:,i])'  * (setup.μ_z[:,1] - z_true[:,i]) #* setup.invΓ_z
-# end
-
-# plot(dpi=300, yaxis=:log, xlims=[0,326], legend=:topright)#, ylims=[5e-2,1e1])
-# plot!(ylabel="Error", xlabel="Rank", title="Norm Error")
-# plot!(vcat([0],dimlist), vcat([err0], err_pca), linewidth=2, color=:blue3, linestyle=:dot, label="PCA")
-# plot!(vcat([0],dimlist),  vcat([err0], err_nogoal), linewidth=2, color=:green, linestyle=:dash, label="Non-Goal-Oriented")
-# plot!(vcat([0],dimlist), vcat([err0], err_godr), linewidth=2, color=:red, label="Goal-Oriented")
-
-
-indQOI = 2
 err_godr, err_nogoal, err_pca = zeros(numdim), zeros(numdim), zeros(numdim)
+br_godr, br_nogoal, br_pca = zeros(numdim), zeros(numdim), zeros(numdim)
 for j in 1:numdim
     for i in 1:N_mc
-        err_godr[j] = err_godr[j] + 1/N_mc * abs.(μ_zgy_godr[indQOI,j,i] - z_true[indQOI,i]) #μ_zgy[indQOI,i]) #/ Σ_zgy_godr[indQOI,indQOI,j,i]
-        err_nogoal[j] = err_nogoal[j] + 1/N_mc *  abs.(μ_zgy_nogoal[indQOI,j,i] - z_true[indQOI,i]) #- μ_zgy[indQOI,i]) #/ sqrt(Σ_zgy_nogoal[indQOI,indQOI,j,i])
-        err_pca[j] = err_pca[j] + 1/N_mc *  abs.(μ_zgy_pca[indQOI,j,i] - z_true[indQOI,i]) #- μ_zgy[indQOI,i]) #/ sqrt(Σ_zgy_pca[indQOI,indQOI,j,i])
-        # err_godr[j] = err_godr[j] + 1/N_mc * abs.(μ_zgy_godr[indQOI,j,i] - μ_zgy[indQOI,i]) # #/ Σ_zgy_godr[indQOI,indQOI,j,i]
-        # err_nogoal[j] = err_nogoal[j] + 1/N_mc *  abs.(μ_zgy_nogoal[indQOI,j,i] - μ_zgy[indQOI,i]) #-  #/ sqrt(Σ_zgy_nogoal[indQOI,indQOI,j,i])
-        # err_pca[j] = err_pca[j] + 1/N_mc *  abs.(μ_zgy_pca[indQOI,j,i] - μ_zgy[indQOI,i]) #-  #/ sqrt(Σ_zgy_pca[indQOI,indQOI,j,i])
+        br_godr[j] = br_godr[j] + 1/N_mc * (μ_zgy_godr[:,j,i] - z_true[:,i])' * inv(Σ_zgy_godr[:,:,j,i]) * (μ_zgy_godr[:,j,i] - z_true[:,i])
+        br_nogoal[j] = br_nogoal[j] + 1/N_mc *  (μ_zgy_nogoal[:,j,i] - z_true[:,i])' * inv(Σ_zgy_nogoal[:,:,j,i]) * (μ_zgy_nogoal[:,j,i] - z_true[:,i])
+        br_pca[j] = br_pca[j] + 1/N_mc *  (μ_zgy_pca[:,j,i] - z_true[:,i])' * inv(Σ_zgy_pca[:,:,j,i]) * (μ_zgy_pca[:,j,i] - z_true[:,i])
+            
+        for indQOI in 1:p
+            err_godr[j] = err_godr[j] + 1/N_mc * abs.(μ_zgy_godr[indQOI,j,i] - z_true[indQOI,i]) / abs(z_true[indQOI,i])  # #/ Σ_zgy_godr[indQOI,indQOI,j,i]
+            err_nogoal[j] = err_nogoal[j] + 1/N_mc *  abs.(μ_zgy_nogoal[indQOI,j,i] - z_true[indQOI,i]) / abs(z_true[indQOI,i])#-  #/ sqrt(Σ_zgy_nogoal[indQOI,indQOI,j,i])
+            err_pca[j] = err_pca[j] + 1/N_mc *  abs.(μ_zgy_pca[indQOI,j,i] - z_true[indQOI,i]) / abs(z_true[indQOI,i])#-  #/ sqrt(Σ_zgy_pca[indQOI,indQOI,j,i])
+        end
     end
 end
-err0 = 0
+err0, br0 = 0, 0
 for i in 1:N_mc
-    err0 = err0 + 1/N_mc * abs.(setup.μ_z[indQOI,1] - z_true[indQOI,i]) #/ sqrt(setup.Γ_z[indQOI,indQOI])
-    # err0 = err0 + 1/N_mc * abs.(setup.μ_z[indQOI,1] - μ_zgy[indQOI,i]) #/ sqrt(setup.Γ_z[indQOI,indQOI])
+    br0 = br0 + 1/N_mc * (setup.μ_z[:,1] - μ_zgy[:,i])' * setup.invΓ_z * (setup.μ_z[:,1] - μ_zgy[:,i])
+    for indQOI in 1:p
+        # err0 = err0 + 1/N_mc * abs.(setup.μ_z[indQOI,1] - z_true[indQOI,i]) #/ sqrt(setup.Γ_z[indQOI,indQOI])
+        err0 = err0 + 1/N_mc * abs.(setup.μ_z[indQOI,1] - z_true[indQOI,i]) / abs(z_true[indQOI,i])#/ sqrt(setup.Γ_z[indQOI,indQOI])
+    end
 end
 
-# plot(dimlist, mean(sqrt.(Σ_zgy_godr[indQOI,indQOI,:,:]), dims=2), xlims=[0,30], yaxis=:log, title="Sqrt Variance Reduction")
+plot(dpi=300,  xlims=[0,325],  ylims=[0.055,0.10], legend=:topright)#, ylims=[5e-2,1e1]),
+plot!(ylabel="Relative Difference from Truth", xlabel="Rank")#, title="Norm Error")
+plot!(vcat([0],dimlist), vcat([err0], err_pca), linewidth=3, color=:blue3, linestyle=:dot, label="PCA")
+plot!(vcat([0],dimlist),  vcat([err0], err_nogoal), linewidth=2, color=:green, linestyle=:dash, label="Non-Goal-Oriented")
+plot!(vcat([0],dimlist), vcat([err0], err_godr), linewidth=3, color=:red, label="Goal-Oriented")
+savefig("plots/11122024/reldiff_allrank_zoomin.png")
 
-plt = plot()
-for i in 1:N_mc
-plot!(dimlist,  abs.(μ_zgy_godr[indQOI,:,i] .- μ_zgy[indQOI,i]) , xlims=[0,300], title="Mean Error", yaxis=:log)
-end
-display(plt)
-plot(dimlist,  abs.(μ_zgy_godr[indQOI,:,6] .- μ_zgy[indQOI,6]) , xlims=[0,300], title="Mean Error", yaxis=:log)
-
-# plot(dimlist,  abs.(μ_zgy_pca[indQOI,:,1] .- z_true[indQOI,1]), xlims=[0,30], title="Mean Error - PCA")
+plot(dpi=300, xlims=[0,30],  legend=:topright)#, ylims=[5e-2,1e1]),
+plot!(ylabel="Relative Difference from Truth", xlabel="Rank")#, title="Norm Error")
+plot!(vcat([0],dimlist), vcat([err0], err_pca), linewidth=3, color=:blue3, linestyle=:dot, label="PCA")
+plot!(vcat([0],dimlist),  vcat([err0], err_nogoal), linewidth=2, color=:green, linestyle=:dash, label="Non-Goal-Oriented")
+plot!(vcat([0],dimlist), vcat([err0], err_godr), linewidth=3, color=:red, label="Goal-Oriented")
+savefig("plots/11122024/reldiff_r30.png")
 
 
 plot(dpi=300,  yaxis=:log,xlims=[0,300], legend=:topright)#, ylims=[5e-2,1e1]),
-plot!(ylabel="Error", xlabel="Rank", title="Norm Error")
-plot!(vcat([0],dimlist), vcat([err0], err_pca), linewidth=2, color=:blue3, linestyle=:dot, label="PCA")
-plot!(vcat([0],dimlist),  vcat([err0], err_nogoal), linewidth=2, color=:green, linestyle=:dash, label="Non-Goal-Oriented")
-plot!(vcat([0],dimlist), vcat([err0], err_godr), linewidth=2, color=:red, label="Goal-Oriented")
+plot!(ylabel="Error Weighted by Precision", xlabel="Rank", title="Bayes Risk")
+plot!(vcat([0],dimlist), vcat([br0], br_pca), linewidth=2, color=:blue3, linestyle=:dot, label="PCA")
+plot!(vcat([0],dimlist),  vcat([br0], br_nogoal), linewidth=2, color=:green, linestyle=:dash, label="Non-Goal-Oriented")
+plot!(vcat([0],dimlist), vcat([br0], br_godr), linewidth=2, color=:red, label="Goal-Oriented")
+
+
+
 # savefig("plots/10172024/errorvsrank_30_nocov.png")
 
 # save("mu_compare.jld2", "godr", μ_godr, "nogoal", μ_nogoal, "pca", μ_pca, "true", μ_zgy_true)

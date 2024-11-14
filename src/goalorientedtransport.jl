@@ -129,6 +129,11 @@ function GODRdata_pr8!(setup::GODRdata{T}; n::Int = 326, p::Int = 6) where T <: 
     idx_326 = AOE.get_λ_idx(pr_λs, [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]) #### ADD THIS INTO THE DATA GOAL SLICING
 
     oper, idx_clima, wls_clima, selectQOI  = load("data/data_CliMA/goaloperator_pr8.jld", "goaloperator", "idx_clima", "wls_clima", "selectQOI")
+    
+    ## SELECT NEW QOI
+    selectQOI = [2,3,7,10]
+    p = 4
+
     oper = oper[:,selectQOI]
     srfmat = get_srfmat(wls_clima, pr_λs)[idx_clima, idx_326]
 
