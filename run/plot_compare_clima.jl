@@ -13,6 +13,8 @@ setup = initialize_GODRdata(n, p)
 GODRdata_pr8!(setup; n=n, p=p);
 prsamp = gen_pr_samp(setup, m; n=n, p=p);
 
+# save("data/data_CliMA/truth_obs_pairs.jld", "x", setup.x_true, "y", setup.y, "z", setup.z_true)
+
 covy = cov(prsamp.y, dims=2) 
 invsqrtcovy = inv(sqrt(covy))
 meany = mean(prsamp.y, dims=2)
@@ -64,37 +66,39 @@ V_nogoal = invsqrtcovy * V_nogoal
 
 
 ### TRANSPORT DENSITY PLOTS
-
-# r = energy_cutoff(Λ_godr, 0.99)
-# V_r = V_godr[:,1:r]
-
-
-# X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:Int(m/10)]
-# yobs_whiten = repeat(V_r' * (setup.y - meany), 1, Int(m/10))
-
-# z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
+m = 1000000
+r = energy_cutoff(Λ_godr, 0.99)
+V_r = V_godr[:,1:r]
 
 
-# z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
+X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:Int(m/10)]
+yobs_whiten = repeat(V_r' * (setup.y - meany), 1, Int(m/10))
 
-# keys_goal = ["BROWN","CHL","LMA","LWC"]
-# # selectQOI = [2,3,7,10]
-# for i in 1:p
+z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
 
-#     plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
-#     plot!(ylabel="Marginal Density")
-#     xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
-#     xmax = setup.μ_z[i] + setup.O_offset[i]+ 2*sqrt(setup.Γ_z[i,i])
-#     plotrange = xmin:(xmax-xmin)/100:xmax
-#     plot!(xlims=[xmin, xmax])
-#     kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
-#     plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
-#     # density!(prsamp.z[i,1:10:end] .+ setup.O_offset[i] , color=:black, label="Prior")
-#     density!(z_possamp_transport[i,:], color=:red, linewidth=2, label="Transport, r=$r")
+
+z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
+# npzwrite("data/data_clima/z_transport.npy", z_possamp_transport)
+
+
+keys_goal = ["BROWN","CHL","LMA","LWC"]
+# selectQOI = [2,3,7,10]
+for i in 1:p
+
+    plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+    plot!(ylabel="Marginal Density")
+    xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
+    xmax = setup.μ_z[i] + setup.O_offset[i]+ 2*sqrt(setup.Γ_z[i,i])
+    plotrange = xmin:(xmax-xmin)/100:xmax
+    plot!(xlims=[xmin, xmax])
+    kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
+    plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
+    # density!(prsamp.z[i,1:10:end] .+ setup.O_offset[i] , color=:black, label="Prior")
+    density!(z_possamp_transport[i,:], color=:red, linewidth=2, label="Transport, r=$r")
     
-#     display(plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth"))
-#     savefig("plots/11122024/transportdensity_qoi_" * keys_goal[i] * ".png")
-# end
+    display(plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth"))
+    # savefig("plots/11122024/transportdensity_qoi_" * keys_goal[i] * ".png")
+end
 
 
 
