@@ -248,13 +248,17 @@ function diagnostic_matrix(N::Int, invsqrtΓ_y)
     H = zeros((n,n))
     # invsqrtΓ_ϵ = inv(sqrt(setup.Γ_ϵ))
     println("Monte Carlo estimate of diagnostic matrix...")
+    randx = rand(MvNormal(setup.μ_x, setup.Γ_x), N)
+    fx = map(aoe_fwdfun, eachcol(randx))  # Apply `aoe_fwdfun` to each column of `randx`
+    dfx = map(randx -> aoe_gradfwdfun(randx, aoe_fwdfun(randx)), eachcol(randx))  # Compute gra
     @time for i = 1:N
-        randx = rand(MvNormal(setup.μ_x, setup.Γ_x))
-        fx = aoe_fwdfun(randx)
-        dfx = aoe_gradfwdfun(randx, fx)
-        # H = H + 1/N * invsqrtΓ_ϵ * dfx * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * dfx' * invsqrtΓ_ϵ
-        H = H + 1/N * invsqrtΓ_y * dfx * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * dfx' * invsqrtΓ_y
-
+        # randx = rand(MvNormal(setup.μ_x, setup.Γ_x))
+        # fx = aoe_fwdfun(randx)
+        # dfx = aoe_gradfwdfun(randx, fx)
+        # # H = H + 1/N * invsqrtΓ_ϵ * dfx * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * dfx' * invsqrtΓ_ϵ
+        # H = H + 1/N * invsqrtΓ_y * dfx * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * dfx' * invsqrtΓ_y
+        dfx_i = dfx[i]  # Gradient for the i-th sample
+        H += (1 / N) * invsqrtΓ_y * dfx_i * setup.Γ_x * setup.O' * setup.invΓ_z * setup.O * setup.Γ_x * dfx_i' * invsqrtΓ_y
     end
     H
 end
@@ -402,7 +406,7 @@ end
 
 function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny::Int; order::Int = 10) where T <: Real
     # S = HermiteMap(order, X; diag = true, factor = 1., α = 1e-6, b = "CstProHermiteBasis");
-    S = HermiteMap(order, X; diag = true, factor = 0.5, α = 1e-6, b = "ProHermiteBasis");
+    S = HermiteMap(order, X; diag = true, factor = 0.2, α = 1e-6, b = "ProHermiteBasis");
     @time S = optimize(S, X, "split"; maxterms = 30, withconstant = true, withqr = true, verbose = true, 
                                   maxpatience = 30, start = 1, hessprecond = true)
     

@@ -109,7 +109,7 @@ function mcmc_bm(μ_pr, Γ_pr, Γ_obs, y, N)
 end
 
 
-function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45]) 
+function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45], samp_factor=1) 
     # block metropolis
 
     r = 2
@@ -127,11 +127,12 @@ function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45])
     propCholRefl = cholesky(tril(propCovRefl) + tril(propCovRefl,-1)').L * 0.11
 
 
-    acceptAOD, acceptH2O, acceptRefl = zeros(N), zeros(N), zeros(N)
+    # acceptAOD, acceptH2O, acceptRefl = zeros(N), zeros(N), zeros(N)
+    acceptAOD, acceptH2O, acceptRefl = zeros(N*samp_factor), zeros(N*samp_factor), zeros(N*samp_factor)
     propCovAOD, propCovH2O = (2.38^2) * Γ_pr[1,1] / 100, (2.38^2) * Γ_pr[2,2] / 100
     propCholAOD, propCholH2O = sqrt(propCovAOD), sqrt(propCovH2O)
     
-    sd, eps = 2.38^2 , 1e-10
+    sd, eps = 2.38^2 / 25, 1e-10
     meanXprevAOD, meanXprevH2O = 0., 0.
 
     # x = x0 
@@ -141,7 +142,8 @@ function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45])
     x = vcat(x_aod, x_h2o, x_refl)
     # x = μ_pr
 
-    for i in 1:N
+    for i in 1:N*samp_factor
+        j = Int(floor((i-1)/samp_factor)+1)
 
         z_atm = copy(x)
         
@@ -174,16 +176,18 @@ function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45])
             acceptRefl[i] += 1
         end
 
-        x_vals[:,i] = x
-
-        if i % 100 == 0
-            if mean(acceptAOD[i-99:i]) < 0.1
-                propCholAOD = propCholAOD / sd
-            end
-            if mean(acceptH2O[i-99:i]) < 0.1
-                propCholH2O = propCholH2O / sd
-            end
+        if i % samp_factor == 0
+            x_vals[:,j] = x
         end
+
+        # if i % 1000 == 0
+        #     if mean(acceptAOD[i-999:i]) < 0.1
+        #         propCholAOD = propCholAOD / sd
+        #     end
+        #     if mean(acceptH2O[i-999:i]) < 0.1
+        #         propCholH2O = propCholH2O / sd
+        #     end
+        # end
         
         if i % 500 == 0
             if i % 1000 == 0
@@ -191,7 +195,7 @@ function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45])
                 display("   AOD Accept Rate: " * string(mean(acceptAOD[i-499:i])))
                 display("   H2O Accept Rate: " * string(mean(acceptH2O[i-499:i])))
                 display("   Ref Accept Rate: " * string(mean(acceptRefl[i-499:i])))
-                display("   Variance: " * string([cov(x_vals[1,i-499:i]) cov(x_vals[2,i-499:i])]))
+                # display("   Variance: " * string([cov(x_vals[1,i-499:i]) cov(x_vals[2,i-499:i])]))
             end
             # propCovAtm = sd * cov(x_vals[1:2,i-499:i], dims=2) + eps * I ####T RY THIS FOR NOW
             propCholAOD = sqrt(propCovAOD)
@@ -199,18 +203,18 @@ function mcmc_bm_3block(μ_pr, Γ_pr, Γ_obs, y, N; xa=[0.2,1.45])
             # display(propCholAtm)
         end
 
-        if i == 1500
-            propCovAOD = sd * var(x_vals[1,1:1500]) + eps
-            propCovH2O = sd * var(x_vals[2,1:1500]) + eps
-            meanXprevAOD = mean(x_vals[1,1:1500])
-            meanXprevH2O = mean(x_vals[2,1:1500])
-        elseif i > 1500
-            meanXAOD = i / (i + 1) * meanXprevAOD + 1 / (i + 1) * x_vals[1,i]
-            propCovAOD = (i-1) / i * propCovAOD + sd / i * (i * meanXprevAOD^2 - (i+1) * meanXAOD^2 + x_vals[1,i]^2 + eps)
+        if i == 15000
+            propCovAOD = sd * var(x_vals[1,1:j]) + eps
+            propCovH2O = sd * var(x_vals[2,1:j]) + eps
+            meanXprevAOD = mean(x_vals[1,1:j])
+            meanXprevH2O = mean(x_vals[2,1:j])
+        elseif i > 15000
+            meanXAOD = i / (i + 1) * meanXprevAOD + 1 / (i + 1) * x[1]
+            propCovAOD = (i-1) / i * propCovAOD + sd / i * (i * meanXprevAOD^2 - (i+1) * meanXAOD^2 + x[1]^2 + eps)
             meanXprevAOD = meanXAOD
 
-            meanXH2O = i / (i + 1) * meanXprevH2O + 1 / (i + 1) * x_vals[2,i]
-            propCovH2O = (i-1) / i * propCovH2O + sd / i * (i * meanXprevH2O^2 - (i+1) * meanXH2O^2 + x_vals[2,i]^2 + eps)
+            meanXH2O = i / (i + 1) * meanXprevH2O + 1 / (i + 1) * x[2]
+            propCovH2O = (i-1) / i * propCovH2O + sd / i * (i * meanXprevH2O^2 - (i+1) * meanXH2O^2 + x[2]^2 + eps)
             meanXprevH2O = meanXH2O
         end
     end

@@ -7,7 +7,7 @@ Random.seed!(123)
 priormodel, wls = get_priormodel(:standard; λ_ranges) # PriorModel instance
 rtmodel = AOE.get_radiative_transfer(:modtran; λ_ranges);
 n, p = 326, 4
-m = 100000
+m = 1000000
 
 setup = initialize_GODRdata(n, p)
 GODRdata_pr8!(setup; n=n, p=p);
@@ -20,8 +20,8 @@ invsqrtcovy = inv(sqrt(covy))
 meany = mean(prsamp.y, dims=2)
 
 
-H_mat = diagnostic_matrix(1000, invsqrtcovy)
-H_nogoal = diagnostic_matrix_no_goal(1000, invsqrtcovy)
+H_mat = diagnostic_matrix(10000, invsqrtcovy)
+H_nogoal = diagnostic_matrix_no_goal(10000, invsqrtcovy)
 H_pca = covy 
 
 Λ_godr, V_godr = diagnostic_eigendecomp(H_mat; showplot=false, setup=setup)
@@ -33,7 +33,7 @@ V_nogoal = invsqrtcovy * V_nogoal
 
 ### EIGENVALUE AND EIGENVECTOR PLOTS
 # plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, title=L"Eigenvalue Spectrum of $H_{GO}$", ylabel="Eigenvalue")
-# savefig("plots/11112024/eigval.png")
+# savefig("plots/11222024(pdf)/eigval.pdf")
 # plot!(Λ_nogoal ./ Λ_nogoal[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 # plot!(Λ_pca ./ Λ_pca[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 
@@ -66,40 +66,60 @@ V_nogoal = invsqrtcovy * V_nogoal
 
 
 ### TRANSPORT DENSITY PLOTS
-m = 1000000
-r = energy_cutoff(Λ_godr, 0.99)
+m = 10000
+r = energy_cutoff(Λ_godr, 0.9999)
 V_r = V_godr[:,1:r]
 
 
-X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:Int(m/10)]
-yobs_whiten = repeat(V_r' * (setup.y - meany), 1, Int(m/10))
+X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
+yobs_whiten = repeat(V_r' * (setup.y - meany), 1, m)
+
+
+
 
 z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
-
-
 z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
-# npzwrite("data/data_clima/z_transport.npy", z_possamp_transport)
+npzwrite("data/data_clima/z_transport.npy", z_possamp_transport)
+
+X_nogoal = vcat(V_nogoal[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
+z_possamp_whiten_nogoal, S, F = apply_cond_transport(X_nogoal, repeat(V_nogoal[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
+z_possamp_nogoal =  sqrt(setup.Γ_z) * z_possamp_whiten_nogoal .+ setup.μ_z .+ setup.O_offset
+
+X_pca = vcat(V_pca[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
+z_possamp_whiten_pca, S, F = apply_cond_transport(X_pca, repeat(V_pca[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
+z_possamp_pca =  sqrt(setup.Γ_z) * z_possamp_whiten_pca .+ setup.μ_z .+ setup.O_offset
 
 
+# z_possamp_transport = npzread("data/data_clima/z_transport.npy")
+z_possamp_naive = npzread("data/data_clima/z_naive_mcmc.npy")[:,200000:10:1000000]
+
+using LaTeXStrings
 keys_goal = ["BROWN","CHL","LMA","LWC"]
+xlabels = ["Senescent Material Fraction", L"Cholorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", "Equivalent Water Thickness [units?]"]
 # selectQOI = [2,3,7,10]
 for i in 1:p
 
-    plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
-    plot!(ylabel="Marginal Density")
+    plt=plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+    if i == 2
+        plot!(legend=:topright)
+    end
+    plot!(ylabel="Marginal Density", xlabel=xlabels[i])
     xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
-    xmax = setup.μ_z[i] + setup.O_offset[i]+ 2*sqrt(setup.Γ_z[i,i])
+    xmax = setup.μ_z[i] + setup.O_offset[i] + 2*sqrt(setup.Γ_z[i,i])
     plotrange = xmin:(xmax-xmin)/100:xmax
     plot!(xlims=[xmin, xmax])
     kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
     plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
-    # density!(prsamp.z[i,1:10:end] .+ setup.O_offset[i] , color=:black, label="Prior")
-    density!(z_possamp_transport[i,:], color=:red, linewidth=2, label="Transport, r=$r")
-    
-    display(plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth"))
-    # savefig("plots/11122024/transportdensity_qoi_" * keys_goal[i] * ".png")
-end
+    plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth")
 
+    density!(z_possamp_naive[i,:], color=:black, linewidth=3, label="Naive MCMC")
+
+    density!(z_possamp_nogoal[i,:], color=:blue, linewidth=3, linestyle=:dash, label="NGO Transport, r=$r")
+    density!(z_possamp_pca[i,:], color=:green, linewidth=3, linestyle=:dash,  label="PCA Transport, r=$r")
+    density!(z_possamp_transport[i,:], color=:red, linewidth=3, label="GO Transport, r=$r")
+    display(plt)
+    savefig("plots/11222024(pdf)/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
+end
 
 
 
