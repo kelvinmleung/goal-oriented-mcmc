@@ -420,3 +420,18 @@ function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny
     Xa[Ny+1:end,:], S, F
 end
 
+function train_transport(X::AbstractMatrix{T}, Ny::Int; order::Int = 10) where T <: Real
+    # S = HermiteMap(order, X; diag = true, factor = 1., α = 1e-6, b = "CstProHermiteBasis");
+    S = HermiteMap(order, X; diag = true, factor = 0.2, α = 1e-6, b = "ProHermiteBasis");
+    @time S = optimize(S, X, "split"; maxterms = 30, withconstant = true, withqr = true, verbose = true, 
+                                  maxpatience = 30, start = 1, hessprecond = true)
+    F = evaluate(S, X; start = Ny+1)
+    F, S
+end
+
+function invert_transport(X::AbstractMatrix{T}, F, S, Ystar::AbstractMatrix{T}, Ny::Int) where T <: Real
+    Xa = deepcopy(X)
+    @time hybridinverse!(Xa, F, S, Ystar; apply_rescaling = true, start = Ny+1)
+    Xa[Ny+1:end,:]
+end
+
