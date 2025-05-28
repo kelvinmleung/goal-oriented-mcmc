@@ -16,10 +16,11 @@ setup.y .= load("data/data_CliMA/truth_obs_pairs.jld", "y")
 setup.z_true .= load("data/data_CliMA/truth_obs_pairs.jld", "z")
 
 # naive
-m_naive = 1000000
+m_naive = 1000000 # total samples is m_naive * samp_factor
 @time x_possamp = mcmc_bm_3block(setup.μ_x, setup.Γ_x, setup.Γ_ϵ, setup.y, m_naive; samp_factor = 40)
 z_possamp_naive = setup.O * x_possamp .+ setup.O_offset
-npzwrite("data/data_clima/z_naive_mcmc.npy", z_possamp_naive)
+# npzwrite("data/data_clima/z_naive_mcmc.npy", z_possamp_naive)
+npzwrite("data/data_clima_may2025/z_naive_mcmc.npy", z_possamp_naive)
 
 
 # z_possamp_naive = npzread("data/data_clima/z_naive_mcmc.npy")

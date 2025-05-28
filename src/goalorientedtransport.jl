@@ -128,8 +128,9 @@ function GODRdata_pr8!(setup::GODRdata{T}; n::Int = 326, p::Int = 6) where T <: 
     pr_λs = load("./LUTdata/wls.jld")["wls"]
     idx_326 = AOE.get_λ_idx(pr_λs, [400.0 1300.0; 1450.0 1780.0; 2051.0 2451.0]) #### ADD THIS INTO THE DATA GOAL SLICING
 
-    oper, idx_clima, wls_clima, selectQOI  = load("data/data_CliMA/goaloperator_pr8.jld", "goaloperator", "idx_clima", "wls_clima", "selectQOI")
-    
+    # oper, idx_clima, wls_clima, selectQOI  = load("data/data_CliMA/goaloperator_pr8.jld", "goaloperator", "idx_clima", "wls_clima", "selectQOI")
+    oper, idx_clima, wls_clima, selectQOI  = load("data/data_CliMA/goaloperator_pr8_logtransform.jld", "goaloperator", "idx_clima", "wls_clima", "selectQOI")
+
     ## SELECT NEW QOI
     selectQOI = [2,3,7,10]
     p = 4
@@ -142,7 +143,8 @@ function GODRdata_pr8!(setup::GODRdata{T}; n::Int = 326, p::Int = 6) where T <: 
     prcov = covs[8][idx_326,idx_326]  / 4
     
     setup.O .= hcat(zeros(p,2), oper' * srfmat)
-    setup.O_offset .= load("data/data_CliMA/goaloperator_pr8.jld", "offset")[selectQOI]
+    # setup.O_offset .= load("data/data_CliMA/goaloperator_pr8.jld", "offset")[selectQOI]
+    setup.O_offset .= load("data/data_CliMA/goaloperator_pr8_logtransform.jld", "offset")[selectQOI]
     Random.seed!(123)
     setup.x_true .= rand(MvNormal(prmean, prcov))
     setup.z_true .= setup.O[:,3:end] * setup.x_true .+ setup.O_offset
@@ -406,7 +408,7 @@ end
 
 function apply_cond_transport(X::AbstractMatrix{T}, Ystar::AbstractMatrix{T}, Ny::Int; order::Int = 10) where T <: Real
     # S = HermiteMap(order, X; diag = true, factor = 1., α = 1e-6, b = "CstProHermiteBasis");
-    S = HermiteMap(order, X; diag = true, factor = 0.2, α = 1e-6, b = "ProHermiteBasis");
+    S = HermiteMap(order, X; diag = true, factor = 0.01, α = 1e-6, b = "ProHermiteBasis");
     @time S = optimize(S, X, "split"; maxterms = 30, withconstant = true, withqr = true, verbose = true, 
                                   maxpatience = 30, start = 1, hessprecond = true)
     

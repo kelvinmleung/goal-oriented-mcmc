@@ -105,6 +105,16 @@ plot(wls_98,Xtest[1:10,2:end]')
 
 Ztrain = data_goal[:, list_ind_pr[indPr][1:Ntrain]]'
 Ztest = data_goal[:, list_ind_pr[indPr][Ntrain+1:Ntrain+Ntest]]'
+# log transform CHL and LWC
+Ztrain[:,3] = log.(Ztrain[:,3])
+Ztest[:,3] = log.(Ztest[:,3])
+
+Ztrain[:,10] = log.(Ztrain[:,10])
+Ztest[:,10] = log.(Ztest[:,10])
+
+# sqrt transform LMA
+Ztrain[:,7] = log.(Ztrain[:,7])
+Ztest[:,7] = log.(Ztest[:,7])
 
 
 plot(wls_98, Xtrain[1:1000,2:end]', color=:red, alpha=0.1, label="")
@@ -136,10 +146,19 @@ for (i, idx) ∈ enumerate(selectQOI)
     rsq[i] = 1 - ss_res / ss_tot
     
     # println("R² for $(keys_goal[indQOI]): ", r_squared)
-    scatter(y_true[1:2:end],y_pred[1:2:end], title=keys_goal[idx],  xlabel="Truth", ylabel="Predicted", legend=false, dpi=300, alpha=0.5, size=(300,300))
-    plot!([0, maximum(y_true)], [0, maximum(y_true)], color=:red, linewidth=3)
+    if idx in [3,7,10]
+        scatter(exp.(y_true[1:2:end]),exp.(y_pred[1:2:end]), title=keys_goal[idx],  xlabel="Truth", ylabel="Predicted", legend=false, dpi=300, alpha=0.5, size=(300,300))
+        plot!([0, maximum(exp.(y_true))], [0, maximum(exp.(y_true))], color=:red, linewidth=3)
+
+    else
+        scatter(y_true[1:2:end],y_pred[1:2:end], title=keys_goal[idx],  xlabel="Truth", ylabel="Predicted", legend=false, dpi=300, alpha=0.5, size=(300,300))
+        plot!([0, maximum(y_true)], [0, maximum(y_true)], color=:red, linewidth=3)
+
+    end
+    # scatter(y_true[1:2:end],y_pred[1:2:end], title=keys_goal[idx],  xlabel="Truth", ylabel="Predicted", legend=false, dpi=300, alpha=0.5, size=(300,300))
+    # plot!([0, maximum(y_true)], [0, maximum(y_true)], color=:red, linewidth=3)
     # plot!(p, scatter, subplot=i)
-    savefig("plots/11222024(pdf)/linreg_qoi_" * keys_goal[idx] * ".pdf")
+    savefig("plots/05262025/linreg_qoi_" * keys_goal[idx] * ".pdf")
 end
 rsq
 # savefig(p, "plots/11112024/linreg_4qoi.png")

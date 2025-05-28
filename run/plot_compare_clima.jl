@@ -32,8 +32,8 @@ V_godr = invsqrtcovy * V_godr
 V_nogoal = invsqrtcovy * V_nogoal
 
 ### EIGENVALUE AND EIGENVECTOR PLOTS
-# plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, title=L"Eigenvalue Spectrum of $H_{GO}$", ylabel="Eigenvalue")
-# savefig("plots/11222024(pdf)/eigval.pdf")
+plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, ylabel="Eigenvalue") # title=L"Eigenvalue Spectrum of $H_{GO}$"
+savefig("plots/05262025/eigval.pdf")
 # plot!(Λ_nogoal ./ Λ_nogoal[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 # plot!(Λ_pca ./ Λ_pca[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 
@@ -65,37 +65,36 @@ V_nogoal = invsqrtcovy * V_nogoal
 # savefig("plots/JSM/poszgy.png")
 
 
-### TRANSPORT DENSITY PLOTS
-# m = 10000
-# r = energy_cutoff(Λ_godr, 0.9999)
-# V_r = V_godr[:,1:r]
+## TRANSPORT DENSITY PLOTS
+m = 30000
+r = energy_cutoff(Λ_godr, 0.99)
+V_r = V_godr[:,1:r]
 
 
-# X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
-# yobs_whiten = repeat(V_r' * (setup.y - meany), 1, m)
+X = vcat(V_r' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
+yobs_whiten = repeat(V_r' * (setup.y - meany), 1, m)
 
-# z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
-# z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
-# npzwrite("data/data_clima/z_transport.npy", z_possamp_transport)
+z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
+z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
+npzwrite("data/data_clima_may2025/z_transport.npy", z_possamp_transport)
 
-# X_nogoal = vcat(V_nogoal[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
-# z_possamp_whiten_nogoal, S, F = apply_cond_transport(X_nogoal, repeat(V_nogoal[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
-# z_possamp_nogoal =  sqrt(setup.Γ_z) * z_possamp_whiten_nogoal .+ setup.μ_z .+ setup.O_offset
-# npzwrite("data/data_clima/z_transport_nogoal.npy", z_possamp_nogoal)
+X_nogoal = vcat(V_nogoal[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
+z_possamp_whiten_nogoal, S, F = apply_cond_transport(X_nogoal, repeat(V_nogoal[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
+z_possamp_nogoal =  sqrt(setup.Γ_z) * z_possamp_whiten_nogoal .+ setup.μ_z .+ setup.O_offset
+npzwrite("data/data_clima_may2025/z_transport_nogoal.npy", z_possamp_nogoal)
 
-# X_pca = vcat(V_pca[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
-# z_possamp_whiten_pca, S, F = apply_cond_transport(X_pca, repeat(V_pca[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
-# z_possamp_pca =  sqrt(setup.Γ_z) * z_possamp_whiten_pca .+ setup.μ_z .+ setup.O_offset
-# npzwrite("data/data_clima/z_transport_pca.npy", z_possamp_pca)
+X_pca = vcat(V_pca[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
+z_possamp_whiten_pca, S, F = apply_cond_transport(X_pca, repeat(V_pca[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
+z_possamp_pca =  sqrt(setup.Γ_z) * z_possamp_whiten_pca .+ setup.μ_z .+ setup.O_offset
+npzwrite("data/data_clima_may2025/z_transport_pca.npy", z_possamp_pca)
 
-
-z_possamp_transport = npzread("data/data_clima/z_transport.npy")
-z_possamp_naive = npzread("data/data_clima/z_naive_mcmc.npy")[:,200000:10:1000000]
+z_possamp_transport = npzread("data/data_clima_may2025/z_transport.npy")
+# z_possamp_naive = npzread("data/data_clima_may2025/z_naive_mcmc.npy")[:,200000:10:1000000]
+z_possamp_naive = npzread("data/data_clima_may2025/z_naive_mcmc.npy")[:,200000:10:1000000]
 
 using LaTeXStrings
 keys_goal = ["BROWN","CHL","LMA","LWC"]
-xlabels = ["Senescent Material Fraction", L"Chlorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", "Equivalent Water Thickness [units?]"]
-# selectQOI = [2,3,7,10]
+xlabels = ["Senescent Material Fraction", L"Chlorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", L"Equivalent Water Thickness [mol/m$^2$]"]
 for i in 1:p
 
     plt=plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
@@ -103,30 +102,51 @@ for i in 1:p
         plot!(legend=:topright)
     end
     plot!(ylabel="Marginal Density", xlabel=xlabels[i])
+    if i == 1
     xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
     xmax = setup.μ_z[i] + setup.O_offset[i] + 2*sqrt(setup.Γ_z[i,i])
+    else
+        xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
+        xmax = setup.μ_z[i] + setup.O_offset[i] + 2*sqrt(setup.Γ_z[i,i])
+    end
     plotrange = xmin:(xmax-xmin)/100:xmax
-    plot!(xlims=[xmin, xmax])
-    kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
-    plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
-    plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth")
+    
+    if i ==1
+        kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
+        kde_pos = pdf.(Normal(μ_zgy[i], sqrt(Σ_zgy[i,i])), plotrange) 
 
-    density!(z_possamp_naive[i,:], color=:black, linewidth=3, label="Naive MCMC")
+        plot!(xlims=[xmin, xmax])
+        plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
+        plot!(plotrange, kde_pos, color=:blue, linewidth=1, label="EnKF")
 
-    density!(z_possamp_nogoal[i,:], color=:blue, linewidth=3, linestyle=:dash, label="NGO Transport, r=$r")
-    density!(z_possamp_pca[i,:], color=:green, linewidth=3, linestyle=:dash,  label="PCA Transport, r=$r")
-    density!(z_possamp_transport[i,:], color=:red, linewidth=3, label="GO Transport, r=$r")
+        plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth")
+        density!(z_possamp_naive[i,:], color=:black, linewidth=3, label="Naive MCMC")
+        density!(z_possamp_nogoal[i,:], color=:blue, linewidth=3, linestyle=:dash, label="NGO Transport, r=$r")
+        density!(z_possamp_pca[i,:], color=:green, linewidth=3, linestyle=:dash,  label="PCA Transport, r=$r")
+        density!(z_possamp_transport[i,:], color=:red, linewidth=3, label="GO Transport, r=$r")
+    else
+        kde_pr = pdf.(LogNormal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), exp.(plotrange) )
+        plot!(xlims=[exp(xmin),exp(xmax)])
+        plot!(exp.(plotrange), kde_pr, color=:black, linewidth=1, label="Prior")
+        plot!([exp(setup.z_true[i])], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth")
+        density!(exp.(z_possamp_naive[i,:]), color=:black, linewidth=3, label="Naive MCMC")
+        density!(exp.(z_possamp_nogoal[i,:]), color=:blue, linewidth=3, linestyle=:dash, label="NGO Transport, r=$r")
+        density!(exp.(z_possamp_pca[i,:]), color=:green, linewidth=3, linestyle=:dash,  label="PCA Transport, r=$r")
+        density!(exp.(z_possamp_transport[i,:]), color=:red, linewidth=3, label="GO Transport, r=$r")
+    end
     display(plt)
-    # savefig("plots/11222024(pdf)/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
+    savefig("plots/05262025/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
 end
 
 ### MCMC CHAIN PLOT
 plt = plot(layout=(2,2), size=(1000, 600), dpi=300)
 for i in 1:p
-    plot!(plt, 1:400:40000000, npzread("data/data_clima/z_naive_mcmc.npy")[i, 1:10:end], color=:blue3, label="", title=keys_goal[i], subplot=i)
+    # plot!(plt, 1:400:40000000, npzread("data/data_clima/z_naive_mcmc.npy")[i, 1:10:end], color=:blue3, label="", title=keys_goal[i], subplot=i)
+    plot!(plt, 1:400:40000000, npzread("data/data_clima_may2025/z_naive_mcmc.npy")[i, 1:10:end], color=:blue3, label="", title=keys_goal[i], subplot=i)
+
 end
 # plot!(plt, xlabel="Sample Count", subplot=p)
-savefig("plots/11222024(pdf)/mcmcchain.pdf")
+savefig("plots/05262025/mcmcchain.pdf")
 # ### KL DIVERGENCE VS RANK
 # z_possamp_naive = npzread("data/data_clima/z_naive_mcmc.npy")[:,200000:10:1000000]
 # μ_mcmc, Σ_mcmc = mean(z_possamp_naive, dims=2), cov(z_possamp_naive, dims=2)
@@ -337,14 +357,14 @@ plot!(ylabel="Relative Error", xlabel="Rank")#, title="Norm Error")
 plot!(vcat([0],dimlist), vcat([err0], err_pca), linewidth=3, color=:green, linestyle=:dash, label="PCA")
 plot!(vcat([0],dimlist),  vcat([err0], err_nogoal), linewidth=3, color=:blue3, linestyle=:dot, label="Non-Goal-Oriented")
 plot!(vcat([0],dimlist), vcat([err0], err_godr), linewidth=3, color=:red, label="Goal-Oriented")
-savefig("plots/11222024(pdf)/reldiff_allrank.pdf")
+savefig("plots/05262025/reldiff_allrank.pdf")
 
 plot(dpi=300, xlims=[0,20], ylims=[0,0.29], legend=:topright)#, ylims=[5e-2,1e1]),
 plot!(ylabel="Relative Error", xlabel="Rank")#, title="Norm Error")
 plot!(vcat([0],dimlist), vcat([err0], err_pca), linewidth=3, color=:green, linestyle=:dash, label="PCA")
 plot!(vcat([0],dimlist),  vcat([err0], err_nogoal), linewidth=3, color=:blue3, linestyle=:dot, label="Non-Goal-Oriented")
 plot!(vcat([0],dimlist), vcat([err0], err_godr), linewidth=3, color=:red, label="Goal-Oriented")
-savefig("plots/11222024(pdf)/reldiff_20rank.pdf")
+savefig("plots/05262025/reldiff_20rank.pdf")
 
 
 # plot(dpi=300,  yaxis=:log,xlims=[0,300], legend=:topright)#, ylims=[5e-2,1e1]),

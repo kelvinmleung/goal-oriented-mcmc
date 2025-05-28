@@ -106,9 +106,24 @@ plot(wls_98,Xtest[1:10,2:end]')
 Ztrain = data_goal[:, list_ind_pr[indPr][1:Ntrain]]'
 Ztest = data_goal[:, list_ind_pr[indPr][Ntrain+1:Ntrain+Ntest]]'
 
+# logit transform BROWN
+# Ztrain[:,2] = sqrt.(Ztrain[:,2])# ./ (1 .- Ztrain[:,2]))
+# Ztest[:,2] = sqrt.(Ztest[:,2])# ./ (1 .- Ztest[:,2]))
+
+# log transform CHL and LWC
+Ztrain[:,3] = log.(Ztrain[:,3])
+Ztest[:,3] = log.(Ztest[:,3])
+
+Ztrain[:,10] = log.(Ztrain[:,10])
+Ztest[:,10] = log.(Ztest[:,10])
+
+# sqrt transform LMA
+Ztrain[:,7] = log.(Ztrain[:,7])
+Ztest[:,7] = log.(Ztest[:,7])
+
+
 
 plot(wls_98, Xtrain[1:1000,2:end]', color=:red, alpha=0.1, label="")
-
 
 eps = 1e-1
 β = inv(Xtrain' * Xtrain + eps * I) * Xtrain' * Ztrain
@@ -120,6 +135,8 @@ rsq = zeros(length(selectQOI))
 for (i, idx) ∈ enumerate(selectQOI)
     # y_true = Ztrain[:,i]
     # y_pred = Xtrain * β[:,i]
+
+
     y_true = Ztest[:,idx]
     y_pred = Xtest * β[:,idx]
     
@@ -130,15 +147,18 @@ for (i, idx) ∈ enumerate(selectQOI)
     
     # println("R² for $(keys_goal[indQOI]): ", r_squared)
     plot(title=keys_goal[idx],  xlabel="Truth", ylabel="Predicted", dpi=300)
-    display(plot!(y_true[1:2:end],y_pred[1:2:end], seriestype=:scatter, legend=false))
-
+    if idx in [3,7,10]
+        display(plot!(exp.(y_true[1:2:end]),exp.(y_pred[1:2:end]), seriestype=:scatter, legend=false))
+    else
+        display(plot!(y_true[1:2:end],y_pred[1:2:end], seriestype=:scatter, legend=false))
+    end
 end
 rsq
 
 
 data_refl_unnorm = collect((data_refl[:,list_ind_pr[8]]' ./ list_ind_scaling[list_ind_pr[8]])')
 ### SAVE PRIOR 8 DATA
-save("data/data_CliMA/goaloperator_pr8.jld", "goaloperator", linoper, "offset", offset,  "wls_clima", wls_sobol, "idx_clima", idx_sobol, "sampRefl", collect((data_refl[:,list_ind_pr[8]]' ./ list_ind_scaling[list_ind_pr[8]])'), "sampQOI", data_goal[selectQOI,list_ind_pr[8]], "selectQOI", selectQOI)
+save("data/data_CliMA/goaloperator_pr8_logtransform.jld", "goaloperator", linoper, "offset", offset,  "wls_clima", wls_sobol, "idx_clima", idx_sobol, "sampRefl", collect((data_refl[:,list_ind_pr[8]]' ./ list_ind_scaling[list_ind_pr[8]])'), "sampQOI", data_goal[selectQOI,list_ind_pr[8]], "selectQOI", selectQOI)
 ### 
 
 
