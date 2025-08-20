@@ -32,9 +32,9 @@ V_godr = invsqrtcovy * V_godr
 V_nogoal = invsqrtcovy * V_nogoal
 
 ### EIGENVALUE AND EIGENVECTOR PLOTS
-plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, size=(300,300)) # title=L"Eigenvalue Spectrum of $H_{GO}$"
+plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, size=(300,300)) #  title=L"Eigenvalue Spectrum of $H_{GO}$"
 # savefig("plots/05262025/eigval.pdf")
-savefig("plots/08042025_fordefense/eigval.pdf")
+# savefig("plots/08042025_fordefense/eigval.pdf")
 
 # plot!(Λ_nogoal ./ Λ_nogoal[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 # plot!(Λ_pca ./ Λ_pca[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
@@ -96,15 +96,17 @@ z_possamp_naive = npzread("data/data_clima_may2025/z_naive_mcmc.npy")[:,200000:1
 
 using LaTeXStrings
 keys_goal = ["BROWN","CHL","LMA","LWC"]
-xlabels = ["Senescent Material Fraction", L"Chlorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", L"Equivalent Water Thickness [mol/m$^2$]"]
+# xlabels = ["Senescent Material Fraction", L"Chlorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", L"Equivalent Water Thickness [mol/m$^2$]"]
+xlabels = ["Senescent Material Fraction", L"Chlorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", L"Leaf Water Content [mol/m$^2$]"]
+
 for i in 1:p
 
-    # plt=plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
-    plt=plot(title=keys_goal[i], legend=false, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+    plt=plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+    # plt=plot(title=keys_goal[i], legend=false, dpi=300, size=(500,300))#xlim=[0.15,0.3])
 
-    # if i == 2
-    #     plot!(legend=:topright)
-    # end
+    if i == 2
+        plot!(legend=:topright)
+    end
     plot!(ylabel="Marginal Density", xlabel=xlabels[i])
     if i == 1
     xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
@@ -140,7 +142,8 @@ for i in 1:p
     end
     display(plt)
     # savefig("plots/05262025/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
-    savefig("plots/08042025_fordefense/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
+    # savefig("plots/08042025_fordefense/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
+    savefig("plots/08142025_forthesis/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
 end
 
 ### MCMC CHAIN PLOT
