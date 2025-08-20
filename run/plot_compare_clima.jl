@@ -32,8 +32,10 @@ V_godr = invsqrtcovy * V_godr
 V_nogoal = invsqrtcovy * V_nogoal
 
 ### EIGENVALUE AND EIGENVECTOR PLOTS
-plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, ylabel="Eigenvalue") # title=L"Eigenvalue Spectrum of $H_{GO}$"
-savefig("plots/05262025/eigval.pdf")
+plot(Λ_godr ./ Λ_godr[1], yaxis=:log, label=false, linewidth=3, color=:blue4, dpi=300, size=(300,300)) # title=L"Eigenvalue Spectrum of $H_{GO}$"
+# savefig("plots/05262025/eigval.pdf")
+savefig("plots/08042025_fordefense/eigval.pdf")
+
 # plot!(Λ_nogoal ./ Λ_nogoal[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 # plot!(Λ_pca ./ Λ_pca[1], yaxis=:log, label=false, linewidth=3, color=:blue3)
 
@@ -76,17 +78,17 @@ yobs_whiten = repeat(V_r' * (setup.y - meany), 1, m)
 
 z_possamp_whiten, S, F = apply_cond_transport(X, yobs_whiten, r; order=10)
 z_possamp_transport =  sqrt(setup.Γ_z) * z_possamp_whiten .+ setup.μ_z .+ setup.O_offset
-npzwrite("data/data_clima_may2025/z_transport.npy", z_possamp_transport)
+# npzwrite("data/data_clima_may2025/z_transport.npy", z_possamp_transport)
 
 X_nogoal = vcat(V_nogoal[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
 z_possamp_whiten_nogoal, S, F = apply_cond_transport(X_nogoal, repeat(V_nogoal[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
 z_possamp_nogoal =  sqrt(setup.Γ_z) * z_possamp_whiten_nogoal .+ setup.μ_z .+ setup.O_offset
-npzwrite("data/data_clima_may2025/z_transport_nogoal.npy", z_possamp_nogoal)
+# npzwrite("data/data_clima_may2025/z_transport_nogoal.npy", z_possamp_nogoal)
 
 X_pca = vcat(V_pca[:,1:r]' * (prsamp.y .- meany), sqrt(setup.invΓ_z) * (prsamp.z .- setup.μ_z))[:,1:m]
 z_possamp_whiten_pca, S, F = apply_cond_transport(X_pca, repeat(V_pca[:,1:r]' * (setup.y - meany), 1, m), r; order=10)
 z_possamp_pca =  sqrt(setup.Γ_z) * z_possamp_whiten_pca .+ setup.μ_z .+ setup.O_offset
-npzwrite("data/data_clima_may2025/z_transport_pca.npy", z_possamp_pca)
+# npzwrite("data/data_clima_may2025/z_transport_pca.npy", z_possamp_pca)
 
 z_possamp_transport = npzread("data/data_clima_may2025/z_transport.npy")
 # z_possamp_naive = npzread("data/data_clima_may2025/z_naive_mcmc.npy")[:,200000:10:1000000]
@@ -97,10 +99,12 @@ keys_goal = ["BROWN","CHL","LMA","LWC"]
 xlabels = ["Senescent Material Fraction", L"Chlorophyll Content [$\mu$g / cm$^2$]", L"Dry Matter Content [g/cm$^2$]", L"Equivalent Water Thickness [mol/m$^2$]"]
 for i in 1:p
 
-    plt=plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
-    if i == 2
-        plot!(legend=:topright)
-    end
+    # plt=plot(title=keys_goal[i], legend=:topleft, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+    plt=plot(title=keys_goal[i], legend=false, dpi=300, size=(500,300))#xlim=[0.15,0.3])
+
+    # if i == 2
+    #     plot!(legend=:topright)
+    # end
     plot!(ylabel="Marginal Density", xlabel=xlabels[i])
     if i == 1
     xmin = setup.μ_z[i] + setup.O_offset[i] - 2*sqrt(setup.Γ_z[i,i])
@@ -113,11 +117,11 @@ for i in 1:p
     
     if i ==1
         kde_pr = pdf.(Normal(setup.μ_z[i] .+ setup.O_offset[i], sqrt(setup.Γ_z[i,i])), plotrange) 
-        kde_pos = pdf.(Normal(μ_zgy[i], sqrt(Σ_zgy[i,i])), plotrange) 
+        # kde_pos = pdf.(Normal(μ_zgy[i], sqrt(Σ_zgy[i,i])), plotrange) 
 
         plot!(xlims=[xmin, xmax])
         plot!(plotrange, kde_pr, color=:black, linewidth=1, label="Prior")
-        plot!(plotrange, kde_pos, color=:blue, linewidth=1, label="EnKF")
+        # plot!(plotrange, kde_pos, color=:blue, linewidth=1, label="EnKF")
 
         plot!([setup.z_true[i]], seriestype="vline", color=:black, linestyle=:dot,linewidth=3, label="Truth")
         density!(z_possamp_naive[i,:], color=:black, linewidth=3, label="Naive MCMC")
@@ -135,7 +139,8 @@ for i in 1:p
         density!(exp.(z_possamp_transport[i,:]), color=:red, linewidth=3, label="GO Transport, r=$r")
     end
     display(plt)
-    savefig("plots/05262025/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
+    # savefig("plots/05262025/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
+    savefig("plots/08042025_fordefense/transportdensity_qoi_" * keys_goal[i] * "_r$r.pdf")
 end
 
 ### MCMC CHAIN PLOT
